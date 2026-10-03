@@ -6,7 +6,15 @@ app = Flask(__name__)
 # ====== إعدادات الذكاء الاصطناعي ======
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.1-8b-instant"
+
+# قائمة النماذج (يتم تجربتها بالترتيب)
+MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-8b-8192",
+    "mixtral-8x7b-32768",
+    "gemma2-9b-it",
+]
 
 conversations = {}
 
@@ -18,45 +26,55 @@ def ask_ai(user_message, session_id="default"):
 
     if session_id not in conversations:
         conversations[session_id] = [
-            {"role": "system", "content": "أنت Moka.AI، مساعد ذكي عربي متطور. أجب بوضوح ودقة وبأسلوب ودود. يمكنك حل المسائل الرياضية، البرمجة، الترجمة، وكل المواضيع."}
+            {"role": "system", "content": "أنت Moka.AI، مساعد ذكي عربي متطور. أجب بوضوح ودقة وبأسلوب ودود. يمكنك حل المسائل الرياضية، البرمجة، الترجمة، وكل المواضيع. استخدم العربية الفصحى المبسطة."}
         ]
 
     conversations[session_id].append({"role": "user", "content": user_message})
     if len(conversations[session_id]) > 21:
         conversations[session_id] = [conversations[session_id][0]] + conversations[session_id][-20:]
 
-    payload = {
-        "model": MODEL,
-        "messages": conversations[session_id],
-        "temperature": 0.7,
-        "max_tokens": 2048,
-    }
+    # تجربة كل نموذج بالترتيب
+    last_error = None
+    for model_name in MODELS:
+        payload = {
+            "model": model_name,
+            "messages": conversations[session_id],
+            "temperature": 0.7,
+            "max_tokens": 2048,
+        }
 
-    try:
-        req = urllib.request.Request(
-            GROQ_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "application/json",
-                "Accept-Language": "ar,en;q=0.9",
-            },
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=30) as r:
-            data = json.loads(r.read().decode("utf-8"))
-        reply = data["choices"][0]["message"]["content"]
-        conversations[session_id].append({"role": "assistant", "content": reply})
-        return reply
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
-        return f"⚠️ خطأ {e.code}:\n{error_body}"
-    except Exception as e:
-        return f"⚠️ خطأ: {str(e)}"
+        try:
+            req = urllib.request.Request(
+                GROQ_URL,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "application/json",
+                    "Accept-Language": "ar,en;q=0.9",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            reply = data["choices"][0]["message"]["content"]
+            conversations[session_id].append({"role": "assistant", "content": reply})
+            # حفظ النموذج الناجح لاستخدامه لاحقاً
+            return reply
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            last_error = f"خطأ {e.code} في النموذج {model_name}: {error_body}"
+            continue  # جرب النموذج التالي
+        except Exception as e:
+            last_error = f"خطأ: {str(e)}"
+            continue
+
+    # إذا فشلت جميع النماذج
+    return f"⚠️ فشلت جميع النماذج.\nآخر خطأ: {last_error}"
 
 
+# ====== الواجهة ======
 HTML = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
