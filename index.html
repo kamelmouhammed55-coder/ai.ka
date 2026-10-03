@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ai.ka - مساعد ذكاء اصطناعي</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      background: #0b0f14;
+      color: white;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid #222;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    header p {
+      color: #aaa;
+      margin-bottom: 0;
+    }
+
+    #chat {
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
+      padding-bottom: 110px;
+    }
+
+    .message {
+      padding: 14px 16px;
+      margin: 12px 0;
+      border-radius: 15px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      background: #1d5cff;
+      margin-right: 15%;
+    }
+
+    .ai {
+      background: #171d26;
+      margin-left: 15%;
+    }
+
+    .input-area {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #0b0f14;
+      border-top: 1px solid #222;
+      padding: 12px;
+    }
+
+    .input-box {
+      max-width: 800px;
+      margin: auto;
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 15px;
+      border: 1px solid #333;
+      border-radius: 12px;
+      background: #151a21;
+      color: white;
+      outline: none;
+      font-size: 16px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 0 20px;
+      background: #1d5cff;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>🤖 ai.ka</h1>
+    <p>مساعد ذكاء اصطناعي</p>
+  </header>
+
+  <main id="chat">
+    <div class="message ai">
+      مرحبًا 👋 أنا ai.ka، كيف يمكنني مساعدتك؟
+    </div>
+  </main>
+
+  <div class="input-area">
+    <div class="input-box">
+      <input
+        id="message"
+        type="text"
+        placeholder="اكتب رسالتك..."
+        autocomplete="off"
+      >
+      <button onclick="sendMessage()">إرسال</button>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById("message");
+    const chat = document.getElementById("chat");
+
+    input.addEventListener("keydown", function(event) {
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
+
+    function addMessage(text, type) {
+      const div = document.createElement("div");
+      div.className = "message " + type;
+      div.textContent = text;
+      chat.appendChild(div);
+
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+
+    function sendMessage() {
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      addMessage(text, "user");
+      input.value = "";
+
+      setTimeout(() => {
+        addMessage(
+          "أنا حاليًا واجهة تجريبية لـ ai.ka. اربطني بواجهة API من الخادم حتى أتمكن من إعطاء إجابات ذكاء اصطناعي حقيقية.",
+          "ai"
+        );
+      }, 500);
+    }
+  </script>
+
+</body>
+</html>
