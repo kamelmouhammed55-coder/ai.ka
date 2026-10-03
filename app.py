@@ -1,27 +1,29 @@
 from flask import Flask, request, jsonify, render_template_string
-import os, json, urllib.request
+import os, json, urllib.request, urllib.error
 
 app = Flask(__name__)
 
 # ====== إعدادات الذكاء الاصطناعي ======
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.1-8b-instant"
+MODEL = "llama-3.3-70b-versatile"  # أقوى نموذج من Groq
 
 # ذاكرة المحادثة
 conversations = {}
 
 def ask_ai(user_message, session_id="default"):
+    """إرسال الرسالة إلى Groq وإرجاع الرد"""
     if not GROQ_API_KEY:
-        return "⚠️ لم يتم إعداد مفتاح API. يرجى إضافته في Render."
+        return "⚠️ مفتاح API غير موجود. الرجاء إضافته في Render."
+    if not GROQ_API_KEY.startswith("gsk_"):
+        return "⚠️ المفتاح غير صحيح. يجب أن يبدأ بـ gsk_."
 
     if session_id not in conversations:
         conversations[session_id] = [
-            {"role": "system", "content": "أنت Moka.AI، مساعد ذكي متطور. تجيب باللغة العربية بوضوح وإيجاز. يمكنك حل المسائل الرياضية المعقدة، الإجابة عن الأسئلة العامة، البرمجة، الترجمة، وكل المواضيع. ردودك دقيقة ومفيدة."}
+            {"role": "system", "content": "أنت Moka.AI، مساعد ذكي عربي متطور. أجب بوضوح ودقة وبأسلوب ودود. يمكنك حل المسائل الرياضية، البرمجة، الترجمة، وكل المواضيع."}
         ]
 
     conversations[session_id].append({"role": "user", "content": user_message})
-
     if len(conversations[session_id]) > 21:
         conversations[session_id] = [conversations[session_id][0]] + conversations[session_id][-20:]
 
@@ -47,10 +49,14 @@ def ask_ai(user_message, session_id="default"):
         reply = data["choices"][0]["message"]["content"]
         conversations[session_id].append({"role": "assistant", "content": reply})
         return reply
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        return f"⚠️ خطأ {e.code}:\n{error_body}"
     except Exception as e:
-        return f"⚠️ حدث خطأ: {str(e)}"
+        return f"⚠️ خطأ: {str(e)}"
 
-# ====== الواجهة ======
+
+# ====== الواجهة الأسطورية ======
 HTML = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -68,7 +74,6 @@ HTML = r"""
     --text: #ececec;
     --border: #333;
     --accent: #10a37f;
-    --accent-hover: #0d8a6a;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -81,14 +86,19 @@ HTML = r"""
     flex-direction: column;
   }
   .header {
-    padding: 16px;
+    padding: 14px 16px;
     text-align: center;
     border-bottom: 1px solid var(--border);
     background: var(--sidebar);
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+  }
+  .header .title-group {
+    display: flex;
+    align-items: center;
     gap: 10px;
+    margin: 0 auto;
   }
   .header .logo {
     width: 32px;
@@ -107,6 +117,16 @@ HTML = r"""
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
+  .clear-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #aaa;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .clear-btn:hover { background: #222; }
   #chat {
     flex: 1;
     overflow-y: auto;
@@ -116,36 +136,58 @@ HTML = r"""
     gap: 18px;
     scroll-behavior: smooth;
   }
-  .msg {
+  .msg-wrapper {
+    display: flex;
     max-width: 88%;
+    animation: slideIn 0.3s ease;
+  }
+  .msg-wrapper.user { align-self: flex-end; }
+  .msg-wrapper.bot { align-self: flex-start; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .msg {
     padding: 14px 18px;
     border-radius: 20px;
     line-height: 1.7;
     white-space: pre-wrap;
     word-wrap: break-word;
-    animation: slideIn 0.3s ease;
     font-size: 15px;
+    flex: 1;
   }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .user {
-    align-self: flex-end;
+  .user .msg {
     background: var(--user-bubble);
     border-bottom-left-radius: 6px;
   }
-  .bot {
-    align-self: flex-start;
+  .bot .msg {
     background: var(--bot-bubble);
     border: 1px solid var(--border);
     border-bottom-right-radius: 6px;
   }
+  .copy-btn {
+    background: transparent;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 8px;
+    margin-right: 8px;
+    align-self: flex-end;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .msg-wrapper.bot:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { color: var(--accent); }
   .typing {
     display: inline-flex;
     gap: 5px;
     align-items: center;
-    color: #888;
+    padding: 14px 18px;
+    background: var(--bot-bubble);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    border-bottom-right-radius: 6px;
   }
   .typing span {
     width: 7px;
@@ -168,10 +210,7 @@ HTML = r"""
     border-top: 1px solid var(--border);
     align-items: center;
   }
-  .input-wrapper {
-    flex: 1;
-    position: relative;
-  }
+  .input-wrapper { flex: 1; }
   input {
     width: 100%;
     padding: 16px 20px;
@@ -183,13 +222,9 @@ HTML = r"""
     outline: none;
     transition: border-color 0.2s;
   }
-  input:focus {
-    border-color: var(--accent);
-  }
-  input::placeholder {
-    color: #666;
-  }
-  button {
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #666; }
+  button.send {
     width: 52px;
     height: 52px;
     border-radius: 50%;
@@ -204,44 +239,32 @@ HTML = r"""
     transition: all 0.2s;
     flex-shrink: 0;
   }
-  button:hover { background: var(--accent-hover); }
-  button:active { transform: scale(0.92); }
-  button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  button.send:active { transform: scale(0.92); }
+  button.send:disabled { opacity: 0.4; cursor: not-allowed; }
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-track { background: transparent; }
   #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
-  .welcome {
-    text-align: center;
-    color: #888;
-    margin: auto;
-    padding: 20px;
-  }
-  .welcome h2 {
-    font-size: 28px;
-    margin-bottom: 10px;
-    background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .welcome p { font-size: 14px; line-height: 1.8; }
 </style>
 </head>
 <body>
 <div class="header">
-  <div class="logo">🤖</div>
-  <h1>Moka.AI</h1>
+  <button class="clear-btn" onclick="clearChat()">🗑️ مسح</button>
+  <div class="title-group">
+    <div class="logo">🤖</div>
+    <h1>Moka.AI</h1>
+  </div>
+  <div style="width: 60px;"></div>
 </div>
 <div id="chat">
-  <div class="msg bot">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي. يمكنني الإجابة على أي سؤال، حل المسائل الرياضية، البرمجة، الترجمة، وأكثر. كيف يمكنني مساعدتك؟</div>
+  <div class="msg-wrapper bot">
+    <div class="msg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء وسأجيبك بأفضل شكل ممكن!</div>
+  </div>
 </div>
 <form class="input-area" id="form">
   <div class="input-wrapper">
     <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
   </div>
-  <button type="submit" id="sendBtn">➤</button>
+  <button type="submit" class="send" id="sendBtn">➤</button>
 </form>
 
 <script>
@@ -252,21 +275,42 @@ HTML = r"""
   const sessionId = "user_" + Math.random().toString(36).substring(2, 10);
 
   function addMessage(text, cls) {
-    const d = document.createElement("div");
-    d.className = "msg " + cls;
-    d.textContent = text;
-    chat.appendChild(d);
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg-wrapper " + cls;
+    const msg = document.createElement("div");
+    msg.className = "msg";
+    msg.textContent = text;
+    wrapper.appendChild(msg);
+    if (cls === "bot") {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.textContent = "📋";
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        copyBtn.textContent = "✅";
+        setTimeout(() => copyBtn.textContent = "📋", 1500);
+      };
+      wrapper.appendChild(copyBtn);
+    }
+    chat.appendChild(wrapper);
     chat.scrollTop = chat.scrollHeight;
-    return d;
+    return wrapper;
   }
 
   function addTyping() {
-    const d = document.createElement("div");
-    d.className = "msg bot typing";
-    d.innerHTML = '<span></span><span></span><span></span>';
-    chat.appendChild(d);
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg-wrapper bot";
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    wrapper.appendChild(typing);
+    chat.appendChild(wrapper);
     chat.scrollTop = chat.scrollHeight;
-    return d;
+    return wrapper;
+  }
+
+  function clearChat() {
+    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة. كيف يمكنني مساعدتك؟</div></div>';
   }
 
   form.addEventListener("submit", async (e) => {
@@ -277,7 +321,6 @@ HTML = r"""
     addMessage(text, "user");
     input.value = "";
     sendBtn.disabled = true;
-
     const typing = addTyping();
 
     try {
@@ -298,17 +341,6 @@ HTML = r"""
     }
   });
 </script>
-
-<!-- كود تتبع StatCounter -->
-<script type="text/javascript">
-var sc_project=13358120; 
-var sc_invisible=1; 
-var sc_security="83ce6869"; 
-</script>
-<script type="text/javascript"
-src="https://www.statcounter.com/counter/counter.js" async></script>
-<noscript><div class="statcounter"><a title="Web Analytics" href="https://statcounter.com/" target="_blank"><img class="statcounter" src="https://c.statcounter.com/13358120/0/83ce6869/1/" alt="Web Analytics" referrerPolicy="no-referrer-when-downgrade"></a></div></noscript>
-
 </body>
 </html>
 """
@@ -330,4 +362,3 @@ def chat_api():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-إضافة البحث في ويكيبيديا 
