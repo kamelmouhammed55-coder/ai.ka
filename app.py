@@ -3,26 +3,37 @@ import os, json, urllib.request, urllib.error
 
 app = Flask(__name__)
 
+# ====== إعدادات الذكاء الاصطناعي ======
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
+# النماذج الحديثة (2026)
 MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
     "qwen/qwen3.6-27b",
 ]
 
+# ====== تعليمات النظام (الهوية) ======
+SYSTEM_PROMPT = """أنت Moka.AI، مساعد ذكي عربي متطور.
+- صانعك ومطورك هو "محمد كامل".
+- لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
+- إذا سُئلت عن هويتك، قل: "أنا Moka.AI، مساعد ذكي من تطوير محمد كامل."
+- أجب بوضوح ودقة وبأسلوب ودود.
+- يمكنك حل المسائل الرياضية، البرمجة، الترجمة، وكل المواضيع.
+- استخدم العربية الفصحى المبسطة."""
+
 conversations = {}
 
 def ask_ai(user_message, session_id="default"):
     if not GROQ_API_KEY:
-        return "⚠️ مفتاح API غير موجود."
+        return "⚠️ مفتاح API غير موجود. الرجاء إضافته في Render."
     if not GROQ_API_KEY.startswith("gsk_"):
-        return "⚠️ المفتاح غير صحيح."
+        return "⚠️ المفتاح غير صحيح. يجب أن يبدأ بـ gsk_."
 
     if session_id not in conversations:
         conversations[session_id] = [
-            {"role": "system", "content": "أنت Moka.AI، مساعد ذكي عربي متطور. أجب بوضوح ودقة وبأسلوب ودود."}
+            {"role": "system", "content": SYSTEM_PROMPT}
         ]
 
     conversations[session_id].append({"role": "user", "content": user_message})
@@ -37,6 +48,7 @@ def ask_ai(user_message, session_id="default"):
             "temperature": 0.7,
             "max_tokens": 2048,
         }
+
         try:
             req = urllib.request.Request(
                 GROQ_URL,
@@ -53,91 +65,154 @@ def ask_ai(user_message, session_id="default"):
             reply = data["choices"][0]["message"]["content"]
             conversations[session_id].append({"role": "assistant", "content": reply})
             return reply
-        except Exception as e:
-            last_error = str(e)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            last_error = f"خطأ {e.code} في النموذج {model_name}: {error_body}"
             continue
-    return f"⚠️ فشلت جميع النماذج: {last_error}"
+        except Exception as e:
+            last_error = f"خطأ: {str(e)}"
+            continue
+
+    return f"⚠️ فشلت جميع النماذج.\nآخر خطأ: {last_error}"
 
 
+# ====== الواجهة ======
 HTML = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Moka.AI</title>
+<title>Moka.AI - مساعدك الذكي</title>
 <style>
+  :root {
+    --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
+    --user-bubble: #2f2f2f; --bot-bubble: #1a1a1a;
+    --text: #ececec; --border: #333; --accent: #10a37f;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #0d0d0d; color: #ececec;
-    font-family: Tahoma, sans-serif;
-    height: 100vh; display: flex; flex-direction: column;
-    overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
   }
   .header {
-    padding: 14px; text-align: center;
-    border-bottom: 1px solid #333; background: #171717;
-    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 16px; text-align: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--sidebar);
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .header h1 {
-    font-size: 18px; margin: 0 auto;
-    background: linear-gradient(90deg, #10a37f, #7c3aed);
+  .title-group { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
+  .logo {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  h1 {
+    font-size: 18px; font-weight: 600;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .clear-btn {
-    background: transparent; border: 1px solid #333;
+    background: transparent; border: 1px solid var(--border);
     color: #aaa; padding: 6px 10px; border-radius: 8px;
     cursor: pointer; font-size: 12px;
   }
   #chat {
-    flex: 1; overflow-y: auto; padding: 20px 16px;
-    display: flex; flex-direction: column; gap: 16px;
+    flex: 1; overflow-y: auto; padding: 24px 16px;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .msg-wrapper { display: flex; max-width: 88%; animation: slideIn 0.3s ease; }
+  .msg-wrapper.user { align-self: flex-end; }
+  .msg-wrapper.bot { align-self: flex-start; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   .msg {
-    max-width: 85%; padding: 14px 18px;
-    border-radius: 20px; line-height: 1.7;
-    white-space: pre-wrap; font-size: 15px;
+    padding: 14px 18px; border-radius: 20px;
+    line-height: 1.7; white-space: pre-wrap;
+    word-wrap: break-word; font-size: 15px; flex: 1;
   }
-  .user { align-self: flex-end; background: #2f2f2f; border-bottom-left-radius: 6px; }
-  .bot { align-self: flex-start; background: #1a1a1a; border: 1px solid #333; border-bottom-right-radius: 6px; }
-  .typing { display: flex; gap: 5px; padding: 14px 18px; background: #1a1a1a; border: 1px solid #333; border-radius: 20px; }
-  .typing span { width: 7px; height: 7px; background: #888; border-radius: 50%; animation: bounce 1.2s infinite; }
+  .user .msg { background: var(--user-bubble); border-bottom-left-radius: 6px; }
+  .bot .msg {
+    background: var(--bot-bubble); border: 1px solid var(--border);
+    border-bottom-right-radius: 6px;
+  }
+  .copy-btn {
+    background: transparent; border: none; color: #666;
+    cursor: pointer; font-size: 14px; padding: 4px 8px;
+    margin-right: 8px; align-self: flex-end; opacity: 0;
+  }
+  .msg-wrapper.bot:hover .copy-btn { opacity: 1; }
+  .typing {
+    display: inline-flex; gap: 5px; align-items: center;
+    padding: 14px 18px; background: var(--bot-bubble);
+    border: 1px solid var(--border); border-radius: 20px;
+  }
+  .typing span {
+    width: 7px; height: 7px; background: #888;
+    border-radius: 50%; animation: bounce 1.2s infinite;
+  }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
   .typing span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
   .input-area {
-    padding: 16px; display: flex; gap: 10px;
-    border-top: 1px solid #333; background: #0d0d0d;
+    padding: 16px; background: var(--bg);
+    display: flex; gap: 10px;
+    border-top: 1px solid var(--border); align-items: center;
   }
+  .input-wrapper { flex: 1; }
   input {
-    flex: 1; padding: 16px 20px; border-radius: 28px;
-    border: 1px solid #333; background: #1e1e1e;
-    color: #ececec; font-size: 16px; outline: none;
+    width: 100%; padding: 16px 20px;
+    border-radius: 28px; border: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text);
+    font-size: 16px; outline: none;
   }
-  input:focus { border-color: #10a37f; }
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: #666; }
   button.send {
     width: 52px; height: 52px; border-radius: 50%;
-    border: none; background: #10a37f; color: white;
-    font-size: 20px; cursor: pointer; flex-shrink: 0;
+    border: none; background: var(--accent);
+    color: white; font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
   }
+  button.send:active { transform: scale(0.92); }
   button.send:disabled { opacity: 0.4; }
+  #chat::-webkit-scrollbar { width: 6px; }
+  #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
   .visitor-counter {
     text-align: center; padding: 8px; font-size: 12px;
-    color: #666; border-top: 1px solid #333; background: #171717;
+    color: #666; border-top: 1px solid var(--border);
+    background: var(--sidebar);
   }
 </style>
 </head>
 <body>
 <div class="header">
   <button class="clear-btn" onclick="clearChat()">🗑️ مسح</button>
-  <h1>Moka.AI</h1>
+  <div class="title-group">
+    <div class="logo">🤖</div>
+    <h1>Moka.AI</h1>
+  </div>
   <div style="width: 60px;"></div>
 </div>
 <div id="chat">
-  <div class="msg bot">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء!</div>
+  <div class="msg-wrapper bot">
+    <div class="msg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي من تطوير <b>محمد كامل</b>. اسألني أي شيء!</div>
+  </div>
 </div>
 <form class="input-area" id="form">
-  <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
+  <div class="input-wrapper">
+    <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
+  </div>
   <button type="submit" class="send" id="sendBtn">➤</button>
 </form>
 <div class="visitor-counter" id="counter">
@@ -157,24 +232,42 @@ HTML = r"""
   const sessionId = "user_" + Math.random().toString(36).substring(2, 10);
 
   function addMessage(text, cls) {
-    const d = document.createElement("div");
-    d.className = "msg " + cls;
-    d.textContent = text;
-    chat.appendChild(d);
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg-wrapper " + cls;
+    const msg = document.createElement("div");
+    msg.className = "msg";
+    msg.textContent = text;
+    wrapper.appendChild(msg);
+    if (cls === "bot") {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.textContent = "📋";
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(text);
+        copyBtn.textContent = "✅";
+        setTimeout(() => copyBtn.textContent = "📋", 1500);
+      };
+      wrapper.appendChild(copyBtn);
+    }
+    chat.appendChild(wrapper);
     chat.scrollTop = chat.scrollHeight;
+    return wrapper;
   }
 
   function addTyping() {
-    const d = document.createElement("div");
-    d.className = "typing";
-    d.innerHTML = '<span></span><span></span><span></span>';
-    chat.appendChild(d);
+    const wrapper = document.createElement("div");
+    wrapper.className = "msg-wrapper bot";
+    const typing = document.createElement("div");
+    typing.className = "typing";
+    typing.innerHTML = '<span></span><span></span><span></span>';
+    wrapper.appendChild(typing);
+    chat.appendChild(wrapper);
     chat.scrollTop = chat.scrollHeight;
-    return d;
+    return wrapper;
   }
 
   function clearChat() {
-    chat.innerHTML = '<div class="msg bot">👋 تم مسح المحادثة.</div>';
+    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة.</div></div>';
   }
 
   form.addEventListener("submit", async (e) => {
