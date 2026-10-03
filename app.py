@@ -85,7 +85,6 @@ def calculate(text):
     if not re.search(r"\d", s):
         return None
 
-    # يسمح فقط بعمليات حسابية بسيطة وآمنة
     if len(s) > 120 or re.search(r"[^0-9+\-*/().%^ ]", s):
         return None
 
@@ -93,7 +92,6 @@ def calculate(text):
         if "^" in s:
             s = s.replace("^", "**")
         if "%" in s:
-            # النسبة المئوية البسيطة: 20% من 50
             m = re.fullmatch(r"([0-9.]+)\s*%\s*([0-9.]+)", s)
             if m:
                 return float(m.group(1)) * float(m.group(2)) / 100
@@ -115,7 +113,6 @@ def knowledge(text):
 
 def quran_answer(text):
     n = norm(text)
-    # آية: البقرة 255 / البقره 255
     m = re.search(r"(?:ايه|اية)\s+([^\d]+)\s+(\d+)", n)
     if not m:
         return None
@@ -145,14 +142,12 @@ def reply(text):
     if not raw:
         return "اكتب سؤالك أولاً."
 
-    # الوقت والتاريخ
     if n in {"كم الساعة", "ما الوقت", "قداه الساعة", "شحال الساعة"}:
         return "الساعة الآن " + datetime.datetime.now().strftime("%H:%M")
 
     if n in {"ما التاريخ", "ما اليوم", "كم التاريخ", "ما تاريخ اليوم"}:
         return "اليوم " + datetime.datetime.now().strftime("%Y/%m/%d")
 
-    # ذاكرة بسيطة
     m = re.match(r"اسمي\s+(.+)", n)
     if m:
         memory["name"] = m.group(1).strip()
@@ -257,6 +252,15 @@ document.getElementById("form").addEventListener("submit",async e=>{
   }
 });
 </script>
+
+<script type="text/javascript">
+var sc_project=13358120; 
+var sc_invisible=1; 
+var sc_security="83ce6869"; 
+</script>
+<script type="text/javascript"
+src="https://www.statcounter.com/counter/counter.js" async></script>
+
 </body>
 </html>
 """
