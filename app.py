@@ -6,13 +6,11 @@ app = Flask(__name__)
 # ====== إعدادات الذكاء الاصطناعي ======
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-MODEL = "llama-3.3-70b-versatile"  # أقوى نموذج من Groq
+MODEL = "llama-3.1-8b-instant"
 
-# ذاكرة المحادثة
 conversations = {}
 
 def ask_ai(user_message, session_id="default"):
-    """إرسال الرسالة إلى Groq وإرجاع الرد"""
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود. الرجاء إضافته في Render."
     if not GROQ_API_KEY.startswith("gsk_"):
@@ -41,6 +39,9 @@ def ask_ai(user_message, session_id="default"):
             headers={
                 "Authorization": f"Bearer {GROQ_API_KEY}",
                 "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+                "Accept-Language": "ar,en;q=0.9",
             },
             method="POST",
         )
@@ -56,7 +57,6 @@ def ask_ai(user_message, session_id="default"):
         return f"⚠️ خطأ: {str(e)}"
 
 
-# ====== الواجهة الأسطورية ======
 HTML = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -66,81 +66,46 @@ HTML = r"""
 <title>Moka.AI - مساعدك الذكي</title>
 <style>
   :root {
-    --bg: #0d0d0d;
-    --sidebar: #171717;
-    --input-bg: #1e1e1e;
-    --user-bubble: #2f2f2f;
-    --bot-bubble: #1a1a1a;
-    --text: #ececec;
-    --border: #333;
-    --accent: #10a37f;
+    --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
+    --user-bubble: #2f2f2f; --bot-bubble: #1a1a1a;
+    --text: #ececec; --border: #333; --accent: #10a37f;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: var(--bg);
-    color: var(--text);
+    background: var(--bg); color: var(--text);
     font-family: 'Segoe UI', Tahoma, sans-serif;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    height: 100vh; overflow: hidden;
+    display: flex; flex-direction: column;
   }
   .header {
-    padding: 14px 16px;
-    text-align: center;
+    padding: 14px 16px; text-align: center;
     border-bottom: 1px solid var(--border);
     background: var(--sidebar);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
   }
-  .header .title-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 0 auto;
-  }
-  .header .logo {
-    width: 32px;
-    height: 32px;
+  .title-group { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
+  .logo {
+    width: 32px; height: 32px;
     background: linear-gradient(135deg, var(--accent), #7c3aed);
     border-radius: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     font-size: 18px;
   }
-  .header h1 {
-    font-size: 18px;
-    font-weight: 600;
+  h1 {
+    font-size: 18px; font-weight: 600;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .clear-btn {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: #aaa;
-    padding: 6px 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
+    background: transparent; border: 1px solid var(--border);
+    color: #aaa; padding: 6px 10px; border-radius: 8px;
+    cursor: pointer; font-size: 12px;
   }
-  .clear-btn:hover { background: #222; }
   #chat {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    scroll-behavior: smooth;
+    flex: 1; overflow-y: auto; padding: 24px 16px;
+    display: flex; flex-direction: column; gap: 18px;
   }
-  .msg-wrapper {
-    display: flex;
-    max-width: 88%;
-    animation: slideIn 0.3s ease;
-  }
+  .msg-wrapper { display: flex; max-width: 88%; animation: slideIn 0.3s ease; }
   .msg-wrapper.user { align-self: flex-end; }
   .msg-wrapper.bot { align-self: flex-start; }
   @keyframes slideIn {
@@ -148,53 +113,29 @@ HTML = r"""
     to { opacity: 1; transform: translateY(0); }
   }
   .msg {
-    padding: 14px 18px;
-    border-radius: 20px;
-    line-height: 1.7;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-size: 15px;
-    flex: 1;
+    padding: 14px 18px; border-radius: 20px;
+    line-height: 1.7; white-space: pre-wrap;
+    word-wrap: break-word; font-size: 15px; flex: 1;
   }
-  .user .msg {
-    background: var(--user-bubble);
-    border-bottom-left-radius: 6px;
-  }
+  .user .msg { background: var(--user-bubble); border-bottom-left-radius: 6px; }
   .bot .msg {
-    background: var(--bot-bubble);
-    border: 1px solid var(--border);
+    background: var(--bot-bubble); border: 1px solid var(--border);
     border-bottom-right-radius: 6px;
   }
   .copy-btn {
-    background: transparent;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 8px;
-    margin-right: 8px;
-    align-self: flex-end;
-    opacity: 0;
-    transition: opacity 0.2s;
+    background: transparent; border: none; color: #666;
+    cursor: pointer; font-size: 14px; padding: 4px 8px;
+    margin-right: 8px; align-self: flex-end; opacity: 0;
   }
   .msg-wrapper.bot:hover .copy-btn { opacity: 1; }
-  .copy-btn:hover { color: var(--accent); }
   .typing {
-    display: inline-flex;
-    gap: 5px;
-    align-items: center;
-    padding: 14px 18px;
-    background: var(--bot-bubble);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    border-bottom-right-radius: 6px;
+    display: inline-flex; gap: 5px; align-items: center;
+    padding: 14px 18px; background: var(--bot-bubble);
+    border: 1px solid var(--border); border-radius: 20px;
   }
   .typing span {
-    width: 7px;
-    height: 7px;
-    background: #888;
-    border-radius: 50%;
-    animation: bounce 1.2s infinite;
+    width: 7px; height: 7px; background: #888;
+    border-radius: 50%; animation: bounce 1.2s infinite;
   }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
   .typing span:nth-child(3) { animation-delay: 0.4s; }
@@ -203,46 +144,29 @@ HTML = r"""
     30% { transform: translateY(-6px); }
   }
   .input-area {
-    padding: 16px;
-    background: var(--bg);
-    display: flex;
-    gap: 10px;
-    border-top: 1px solid var(--border);
-    align-items: center;
+    padding: 16px; background: var(--bg);
+    display: flex; gap: 10px;
+    border-top: 1px solid var(--border); align-items: center;
   }
   .input-wrapper { flex: 1; }
   input {
-    width: 100%;
-    padding: 16px 20px;
-    border-radius: 28px;
-    border: 1px solid var(--border);
-    background: var(--input-bg);
-    color: var(--text);
-    font-size: 16px;
-    outline: none;
-    transition: border-color 0.2s;
+    width: 100%; padding: 16px 20px;
+    border-radius: 28px; border: 1px solid var(--border);
+    background: var(--input-bg); color: var(--text);
+    font-size: 16px; outline: none;
   }
   input:focus { border-color: var(--accent); }
   input::placeholder { color: #666; }
   button.send {
-    width: 52px;
-    height: 52px;
-    border-radius: 50%;
-    border: none;
-    background: var(--accent);
-    color: white;
-    font-size: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
+    width: 52px; height: 52px; border-radius: 50%;
+    border: none; background: var(--accent);
+    color: white; font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
   button.send:active { transform: scale(0.92); }
-  button.send:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.send:disabled { opacity: 0.4; }
   #chat::-webkit-scrollbar { width: 6px; }
-  #chat::-webkit-scrollbar-track { background: transparent; }
   #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
 </style>
 </head>
@@ -257,7 +181,7 @@ HTML = r"""
 </div>
 <div id="chat">
   <div class="msg-wrapper bot">
-    <div class="msg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء وسأجيبك بأفضل شكل ممكن!</div>
+    <div class="msg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء!</div>
   </div>
 </div>
 <form class="input-area" id="form">
@@ -310,19 +234,17 @@ HTML = r"""
   }
 
   function clearChat() {
-    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة. كيف يمكنني مساعدتك؟</div></div>';
+    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة.</div></div>';
   }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
     if (!text) return;
-
     addMessage(text, "user");
     input.value = "";
     sendBtn.disabled = true;
     const typing = addTyping();
-
     try {
       const r = await fetch("/chat", {
         method: "POST",
