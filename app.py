@@ -7,13 +7,11 @@ app = Flask(__name__)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# قائمة النماذج (يتم تجربتها بالترتيب)
+# قائمة النماذج الحديثة والمستقرة (يتم تجربتها بالترتيب)
 MODELS = [
-    "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
-    "llama3-8b-8192",
-    "mixtral-8x7b-32768",
-    "gemma2-9b-it",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.6-27b",
 ]
 
 conversations = {}
@@ -60,19 +58,16 @@ def ask_ai(user_message, session_id="default"):
                 data = json.loads(r.read().decode("utf-8"))
             reply = data["choices"][0]["message"]["content"]
             conversations[session_id].append({"role": "assistant", "content": reply})
-            # حفظ النموذج الناجح لاستخدامه لاحقاً
             return reply
         except urllib.error.HTTPError as e:
             error_body = e.read().decode("utf-8")
             last_error = f"خطأ {e.code} في النموذج {model_name}: {error_body}"
-            continue  # جرب النموذج التالي
+            continue
         except Exception as e:
             last_error = f"خطأ: {str(e)}"
             continue
 
-    # إذا فشلت جميع النماذج
     return f"⚠️ فشلت جميع النماذج.\nآخر خطأ: {last_error}"
-
 
 # ====== الواجهة ======
 HTML = r"""
