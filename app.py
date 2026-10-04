@@ -1,494 +1,177 @@
 from flask import Flask, request, jsonify, render_template_string
-import os, json, urllib.request, urllib.error
+import os, json, urllib.request
 
 app = Flask(__name__)
-
-# ====== إعدادات الذكاء الاصطناعي ======
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
-MODELS = [
-    "openai/gpt-oss-120b",
-    "openai/gpt-oss-20b",
-    "qwen/qwen3.6-27b",
-]
-
-# ====== النسخ المختلفة ======
-MODES = {
-    "general": {
-        "name": "🧠 النسخة العامة",
-        "icon": "🧠",
-        "prompt": """أنت Moka.AI، مساعد ذكي عربي متطور.
-صانعك ومطورك هو "محمد كامل".
-لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
-إذا سُئلت عن هويتك، قل: "أنا Moka.AI، مساعد ذكي من تطوير محمد كامل."
-أجب بوضوح ودقة وبأسلوب ودود. يمكنك الإجابة عن أي سؤال في أي مجال."""
-    },
-    "math": {
-        "name": "📐 نسخة الرياضيات",
-        "icon": "📐",
-        "prompt": """أنت Moka.AI، خبير في الرياضيات.
-صانعك ومطورك هو "محمد كامل".
-مهمتك: حل المسائل الرياضية خطوة بخطوة، مع شرح كل خطوة بوضوح.
-- اكتب المعادلات بشكل منظم.
-- اشرح القوانين المستخدمة.
-- أعطِ النتيجة النهائية بشكل واضح.
-- يمكنك حل: الجبر، الهندسة، التفاضل، التكامل، الإحصاء، وغيرها."""
-    },
-    "code": {
-        "name": "💻 نسخة البرمجة",
-        "icon": "💻",
-        "prompt": """أنت Moka.AI، خبير في البرمجة.
-صانعك ومطورك هو "محمد كامل".
-مهمتك: مساعدة المستخدم في كتابة وشرح الأكواد البرمجية.
-- اكتب كوداً نظيفاً ومرتباً.
-- اشرح ما يفعله الكود.
-- استخدم Python, JavaScript, HTML, CSS, وغيرها.
-- ساعد في تصحيح الأخطاء."""
-    },
+PROMPTS = {
+    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بوضوح عن أي سؤال. لا تقل أنك GPT أو OpenAI.",
+    "math": "أنت Moka.AI، خبير رياضيات من تطوير محمد كامل. حل المسائل خطوة بخطوة مع الشرح.",
+    "code": "أنت Moka.AI، خبير برمجة من تطوير محمد كامل. اكتب واشرح الأكواد بوضوح.",
 }
 
-conversations = {}
+convs = {}
 
-def ask_ai(user_message, session_id="default", mode="general"):
+def ask_ai(msg, sid, mode):
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود."
-    if not GROQ_API_KEY.startswith("gsk_"):
-        return "⚠️ المفتاح غير صحيح."
-
-    prompt = MODES.get(mode, MODES["general"])["prompt"]
-    conv_key = f"{session_id}_{mode}"
-
-    if conv_key not in conversations:
-        conversations[conv_key] = [
-            {"role": "system", "content": prompt}
-        ]
-
-    conversations[conv_key].append({"role": "user", "content": user_message})
-    if len(conversations[conv_key]) > 21:
-        conversations[conv_key] = [conversations[conv_key][0]] + conversations[conv_key][-20:]
-
-    last_error = None
-    for model_name in MODELS:
-        payload = {
-            "model": model_name,
-            "messages": conversations[conv_key],
-            "temperature": 0.7,
-            "max_tokens": 2048,
-        }
+    key = f"{sid}_{mode}"
+    if key not in convs:
+        convs[key] = [{"role": "system", "content": PROMPTS.get(mode, PROMPTS["general"])}]
+    convs[key].append({"role": "user", "content": msg})
+    if len(convs[key]) > 21:
+        convs[key] = [convs[key][0]] + convs[key][-20:]
+    for m in MODELS:
         try:
-            req = urllib.request.Request(
-                GROQ_URL,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                },
-                method="POST",
-            )
+            req = urllib.request.Request(GROQ_URL,
+                data=json.dumps({"model": m, "messages": convs[key], "temperature": 0.7, "max_tokens": 2048}).encode(),
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json",
+                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                method="POST")
             with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read().decode("utf-8"))
+                data = json.loads(r.read().decode())
             reply = data["choices"][0]["message"]["content"]
-            conversations[conv_key].append({"role": "assistant", "content": reply})
+            convs[key].append({"role": "assistant", "content": reply})
             return reply
-        except Exception as e:
-            last_error = str(e)
-            continue
-    return f"⚠️ فشلت جميع النماذج: {last_error}"
-
-
-def summarize_text(text):
-    if not GROQ_API_KEY:
-        return "⚠️ مفتاح API غير موجود."
-    messages = [
-        {"role": "system", "content": "أنت مساعد متخصص في تلخيص الدروس. لخص النص التالي في نقاط واضحة ومفيدة بالعربية."},
-        {"role": "user", "content": f"لخص هذا الدرس:\n\n{text}"}
-    ]
-    for model_name in MODELS:
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "temperature": 0.5,
-            "max_tokens": 1024,
-        }
-        try:
-            req = urllib.request.Request(
-                GROQ_URL,
-                data=json.dumps(payload).encode("utf-8"),
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0",
-                },
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            return data["choices"][0]["message"]["content"]
         except Exception:
             continue
-    return "⚠️ تعذر التلخيص حالياً."
+    return "⚠️ فشل الاتصال."
 
+def summarize(text):
+    for m in MODELS:
+        try:
+            req = urllib.request.Request(GROQ_URL,
+                data=json.dumps({"model": m, "messages": [
+                    {"role": "system", "content": "لخص النص التالي في نقاط واضحة بالعربية."},
+                    {"role": "user", "content": text}], "temperature": 0.5, "max_tokens": 1024}).encode(),
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json",
+                         "User-Agent": "Mozilla/5.0"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.loads(r.read().decode())["choices"][0]["message"]["content"]
+        except Exception:
+            continue
+    return "⚠️ تعذر التلخيص."
 
-LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#10a37f"/><stop offset="100%" style="stop-color:#7c3aed"/></linearGradient></defs><polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#g)"/><text x="50" y="65" font-family="Arial" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>'''
-
-LOGO_BASE64 = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+"
-
-HTML = r"""
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Moka.AI</title>
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#10a37f">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,__LOGO_BASE64__">
+HTML = """<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moka.AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#10a37f">
 <style>
-  :root {
-    --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
-    --user-bubble: #2f2f2f; --bot-bubble: #1a1a1a;
-    --text: #ececec; --border: #333; --accent: #10a37f;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: 'Segoe UI', Tahoma, sans-serif;
-    height: 100vh; overflow: hidden;
-    display: flex; flex-direction: column;
-  }
-
-  /* شاشة الدخول */
-  #loginScreen {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    z-index: 999; padding: 20px;
-  }
-  #loginScreen.hidden { display: none; }
-  .login-logo { width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(16,163,127,0.4)); }
-  .login-title { font-size: 36px; font-weight: bold; margin-bottom: 8px;
-    background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .login-subtitle { font-size: 14px; color: #888; margin-bottom: 30px; }
-  .login-box { width: 100%; max-width: 360px; background: rgba(26,26,26,0.95);
-    border: 1px solid #333; border-radius: 20px; padding: 24px; }
-  .login-box label { display: block; font-size: 13px; color: #aaa; margin-bottom: 8px; }
-  .login-box input { width: 100%; padding: 14px 18px; border-radius: 12px;
-    border: 1px solid #333; background: #0d0d0d; color: #ececec;
-    font-size: 16px; outline: none; margin-bottom: 16px; }
-  .login-box input:focus { border-color: var(--accent); }
-  .login-btn { width: 100%; padding: 14px; border-radius: 12px; border: none;
-    background: linear-gradient(90deg, var(--accent), #7c3aed);
-    color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
-  .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #555; }
-
-  /* التطبيق */
-  #appScreen { display: none; height: 100vh; flex-direction: column; }
-  #appScreen.active { display: flex; }
-
-  /* القائمة الجانبية */
-  .sidebar-overlay {
-    display: none; position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%; background: rgba(0,0,0,0.6);
-    z-index: 998;
-  }
-  .sidebar-overlay.active { display: block; }
-  .sidebar {
-    position: fixed; top: 0; right: -300px;
-    width: 280px; height: 100%; background: #171717;
-    border-left: 1px solid #333; z-index: 999;
-    transition: right 0.3s ease; padding: 20px;
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  .sidebar.active { right: 0; }
-  .sidebar h2 { font-size: 16px; color: #aaa; margin-bottom: 10px; }
-  .mode-btn {
-    padding: 14px; border-radius: 12px; border: 1px solid #333;
-    background: #1e1e1e; color: #ececec; cursor: pointer;
-    text-align: right; font-size: 14px; display: flex; align-items: center; gap: 10px;
-  }
-  .mode-btn.active { border-color: var(--accent); background: rgba(16,163,127,0.1); }
-  .logout-btn {
-    margin-top: auto; padding: 14px; border-radius: 12px;
-    border: 1px solid #dc2626; background: transparent;
-    color: #dc2626; cursor: pointer; font-size: 14px;
-  }
-
-  .header {
-    padding: 14px 16px; text-align: center;
-    border-bottom: 1px solid var(--border); background: var(--sidebar);
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .title-group { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
-  .header-logo { width: 32px; height: 32px; }
-  h1 { font-size: 18px; font-weight: 600;
-    background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .header-btn {
-    background: transparent; border: 1px solid var(--border);
-    color: #aaa; padding: 8px 10px; border-radius: 8px;
-    cursor: pointer; font-size: 14px;
-  }
-  .header-btn:hover { background: #222; }
-
-  #chat {
-    flex: 1; overflow-y: auto; padding: 24px 16px;
-    display: flex; flex-direction: column; gap: 18px;
-  }
-  .msg-wrapper { display: flex; max-width: 88%; animation: slideIn 0.3s ease; }
-  .msg-wrapper.user { align-self: flex-end; }
-  .msg-wrapper.bot { align-self: flex-start; }
-  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-  .msg { padding: 14px 18px; border-radius: 20px; line-height: 1.7;
-    white-space: pre-wrap; word-wrap: break-word; font-size: 15px; flex: 1; }
-  .user .msg { background: var(--user-bubble); border-bottom-left-radius: 6px; }
-  .bot .msg { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-right-radius: 6px; }
-  .copy-btn { background: transparent; border: none; color: #666;
-    cursor: pointer; font-size: 14px; padding: 4px 8px;
-    margin-right: 8px; align-self: flex-end; opacity: 0; }
-  .msg-wrapper.bot:hover .copy-btn { opacity: 1; }
-  .typing { display: inline-flex; gap: 5px; align-items: center;
-    padding: 14px 18px; background: var(--bot-bubble);
-    border: 1px solid var(--border); border-radius: 20px; }
-  .typing span { width: 7px; height: 7px; background: #888; border-radius: 50%; animation: bounce 1.2s infinite; }
-  .typing span:nth-child(2) { animation-delay: 0.2s; }
-  .typing span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
-  .input-area { padding: 16px; background: var(--bg); display: flex; gap: 10px;
-    border-top: 1px solid var(--border); align-items: center; }
-  .input-wrapper { flex: 1; }
-  input { width: 100%; padding: 16px 20px; border-radius: 28px;
-    border: 1px solid var(--border); background: var(--input-bg);
-    color: var(--text); font-size: 16px; outline: none; }
-  input:focus { border-color: var(--accent); }
-  input::placeholder { color: #666; }
-  button.send { width: 52px; height: 52px; border-radius: 50%; border: none;
-    background: var(--accent); color: white; font-size: 20px;
-    cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  button.send:disabled { opacity: 0.4; }
-  #chat::-webkit-scrollbar { width: 6px; }
-  #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
-  .visitor-counter { text-align: center; padding: 8px; font-size: 12px;
-    color: #666; border-top: 1px solid var(--border); background: var(--sidebar); }
-  .modal-overlay { display: none; position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%; background: rgba(0,0,0,0.7);
-    z-index: 1000; justify-content: center; align-items: center; }
-  .modal-overlay.active { display: flex; }
-  .modal { background: #1a1a1a; border: 1px solid #333; border-radius: 16px;
-    padding: 20px; width: 90%; max-width: 500px;
-    display: flex; flex-direction: column; gap: 12px; }
-  .modal h2 { font-size: 18px; margin-bottom: 4px; }
-  .modal textarea { width: 100%; height: 200px; padding: 14px;
-    border-radius: 12px; border: 1px solid #333; background: #0d0d0d;
-    color: #ececec; font-family: inherit; font-size: 14px; resize: vertical; outline: none; }
-  .modal textarea:focus { border-color: var(--accent); }
-  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
-  .modal-btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
-  .modal-btn.primary { background: var(--accent); color: white; }
-  .modal-btn.secondary { background: #333; color: #ccc; }
-</style>
-</head>
-<body>
-
-<!-- شاشة الدخول -->
-<div id="loginScreen">
-  <div class="login-logo">__LOGO_SVG__</div>
-  <div class="login-title">Moka.AI</div>
-  <div class="login-subtitle">مساعدك الذكي من تطوير محمد كامل</div>
-  <div class="login-box">
-    <label>👤 اسمك</label>
-    <input id="usernameInput" autocomplete="off" placeholder="اكتب اسمك هنا...">
-    <button class="login-btn" onclick="loginLocal()">🚀 دخول</button>
-  </div>
-  <div class="login-footer">Moka.AI © 2026</div>
-</div>
-
-<!-- القائمة الجانبية -->
-<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
-<div class="sidebar" id="sidebar">
-  <h2>📋 اختر النسخة</h2>
-  <button class="mode-btn active" data-mode="general" onclick="switchMode('general')">
-    <span>🧠</span> النسخة العامة
-  </button>
-  <button class="mode-btn" data-mode="math" onclick="switchMode('math')">
-    <span>📐</span> نسخة الرياضيات
-  </button>
-  <button class="mode-btn" data-mode="code" onclick="switchMode('code')">
-    <span>💻</span> نسخة البرمجة
-  </button>
-  <button class="logout-btn" onclick="logout()">🚪 تسجيل الخروج</button>
-</div>
-
-<!-- التطبيق -->
-<div id="appScreen">
-  <div class="header">
-    <button class="header-btn" onclick="openSidebar()">☰</button>
-    <div class="title-group">
-      <div class="header-logo">__LOGO_SVG__</div>
-      <h1>Moka.AI</h1>
-    </div>
-    <div style="width: 50px;"></div>
-  </div>
-  <div id="chat">
-    <div class="msg-wrapper bot">
-      <div class="msg" id="welcomeMsg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي.</div>
-    </div>
-  </div>
-  <form class="input-area" id="form">
-    <div class="input-wrapper">
-      <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
-    </div>
-    <button type="submit" class="send" id="sendBtn">➤</button>
-  </form>
-  <div class="visitor-counter" id="counter">
-    👁️ عدد الزوار: <span id="visitCount">...</span>
-  </div>
-</div>
-
-<!-- نافذة التلخيص -->
-<div class="modal-overlay" id="summaryModal">
-  <div class="modal">
-    <h2>📝 تلخيص درس</h2>
-    <p style="font-size:13px;color:#888;">الصق نص الدرس هنا وسيقوم Moka.AI بتلخيصه.</p>
-    <textarea id="summaryText" placeholder="الصق نص الدرس هنا..."></textarea>
-    <div class="modal-btns">
-      <button class="modal-btn secondary" onclick="closeSummary()">إلغاء</button>
-      <button class="modal-btn primary" onclick="doSummary()">📝 لخّص</button>
-    </div>
-  </div>
-</div>
-
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0d0d0d;color:#ececec;font-family:Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#login{position:fixed;inset:0;background:linear-gradient(135deg,#0d0d0d,#1a1a2e,#0d0d0d);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:20px}
+#login.hide{display:none}
+.lg{width:100px;height:100px;background:linear-gradient(135deg,#10a37f,#7c3aed);border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:50px;font-weight:bold;color:white;margin-bottom:20px;box-shadow:0 0 30px rgba(16,163,127,.4)}
+.lt{font-size:34px;font-weight:bold;margin-bottom:8px;background:linear-gradient(90deg,#10a37f,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ls{color:#888;margin-bottom:30px;font-size:14px}
+.lb{width:100%;max-width:340px;background:#1a1a1a;border:1px solid #333;border-radius:20px;padding:24px}
+.lb label{display:block;font-size:13px;color:#aaa;margin-bottom:8px}
+.lb input{width:100%;padding:14px;border-radius:12px;border:1px solid #333;background:#0d0d0d;color:#ececec;font-size:16px;outline:none;margin-bottom:16px}
+.lb input:focus{border-color:#10a37f}
+.lb button{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(90deg,#10a37f,#7c3aed);color:white;font-size:16px;font-weight:bold;cursor:pointer}
+#app{display:none;height:100vh;flex-direction:column}
+#app.on{display:flex}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:998}
+.ov.on{display:block}
+.sb{position:fixed;top:0;right:-300px;width:280px;height:100%;background:#171717;border-left:1px solid #333;z-index:999;transition:right .3s;padding:20px;display:flex;flex-direction:column;gap:10px}
+.sb.on{right:0}
+.sb h2{font-size:16px;color:#aaa;margin-bottom:10px}
+.mb{padding:14px;border-radius:12px;border:1px solid #333;background:#1e1e1e;color:#ececec;cursor:pointer;text-align:right;font-size:14px}
+.mb.on{border-color:#10a37f;background:rgba(16,163,127,.1)}
+.lo{margin-top:auto;padding:14px;border-radius:12px;border:1px solid #dc2626;background:transparent;color:#dc2626;cursor:pointer}
+.hd{padding:14px;border-bottom:1px solid #333;background:#171717;display:flex;align-items:center;justify-content:space-between}
+.tg{display:flex;align-items:center;gap:10px;margin:0 auto}
+.hl{width:32px;height:32px;background:linear-gradient(135deg,#10a37f,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white}
+h1{font-size:18px;background:linear-gradient(90deg,#10a37f,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hb{background:transparent;border:1px solid #333;color:#aaa;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px}
+#ch{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.mw{display:flex;max-width:88%;animation:si .3s}
+.mw.u{align-self:flex-end}
+.mw.b{align-self:flex-start}
+@keyframes si{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.m{padding:14px 18px;border-radius:18px;line-height:1.7;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
+.u .m{background:#2f2f2f;border-bottom-left-radius:6px}
+.b .m{background:#1a1a1a;border:1px solid #333;border-bottom-right-radius:6px}
+.tp{display:inline-flex;gap:5px;padding:14px 18px;background:#1a1a1a;border:1px solid #333;border-radius:18px}
+.tp span{width:7px;height:7px;background:#888;border-radius:50%;animation:bo 1.2s infinite}
+.tp span:nth-child(2){animation-delay:.2s}
+.tp span:nth-child(3){animation-delay:.4s}
+@keyframes bo{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
+.ia{padding:16px;background:#0d0d0d;display:flex;gap:10px;border-top:1px solid #333;align-items:center}
+.iw{flex:1}
+input{width:100%;padding:16px 20px;border-radius:28px;border:1px solid #333;background:#1e1e1e;color:#ececec;font-size:16px;outline:none}
+input:focus{border-color:#10a37f}
+button.sd{width:52px;height:52px;border-radius:50%;border:none;background:#10a37f;color:white;font-size:20px;cursor:pointer;flex-shrink:0}
+button.sd:disabled{opacity:.4}
+.vc{text-align:center;padding:8px;font-size:12px;color:#666;border-top:1px solid #333;background:#171717}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;justify-content:center;align-items:center}
+.mo.on{display:flex}
+.md{background:#1a1a1a;border:1px solid #333;border-radius:16px;padding:20px;width:90%;max-width:500px;display:flex;flex-direction:column;gap:12px}
+.md textarea{width:100%;height:200px;padding:14px;border-radius:12px;border:1px solid #333;background:#0d0d0d;color:#ececec;font-family:inherit;resize:vertical;outline:none}
+.mbtns{display:flex;gap:10px;justify-content:flex-end}
+.mbtns button{padding:10px 20px;border-radius:10px;border:none;cursor:pointer}
+.mbtns .p{background:#10a37f;color:white}
+.mbtns .s{background:#333;color:#ccc}
+</style></head><body>
+<div id="login"><div class="lg">M</div><div class="lt">Moka.AI</div><div class="ls">مساعدك الذكي من تطوير محمد كامل</div>
+<div class="lb"><label>👤 اسمك</label><input id="un" placeholder="اكتب اسمك..."><button onclick="login()">🚀 دخول</button></div></div>
+<div class="ov" id="ov" onclick="closeS()"></div>
+<div class="sb" id="sb"><h2>📋 اختر النسخة</h2>
+<button class="mb on" data-m="general" onclick="sw('general')">🧠 النسخة العامة</button>
+<button class="mb" data-m="math" onclick="sw('math')">📐 نسخة الرياضيات</button>
+<button class="mb" data-m="code" onclick="sw('code')">💻 نسخة البرمجة</button>
+<button class="lo" onclick="out()">🚪 تسجيل الخروج</button></div>
+<div id="app"><div class="hd"><button class="hb" onclick="openS()">☰</button>
+<div class="tg"><div class="hl">M</div><h1>Moka.AI</h1></div><div style="width:50px"></div></div>
+<div id="ch"><div class="mw b"><div class="m" id="wm">👋 مرحباً!</div></div></div>
+<form class="ia" id="f"><div class="iw"><input id="i" placeholder="اسأل Moka.AI..." autocomplete="off"></div><button class="sd" id="s">➤</button></form>
+<div class="vc">👁️ عدد الزوار: <span id="vc">...</span></div></div>
+<div class="mo" id="mo"><div class="md"><h2>📝 تلخيص درس</h2><textarea id="st" placeholder="الصق النص..."></textarea>
+<div class="mbtns"><button class="s" onclick="closeM()">إلغاء</button><button class="p" onclick="doSum()">📝 لخّص</button></div></div></div>
 <script>
-  const loginScreen = document.getElementById("loginScreen");
-  const appScreen = document.getElementById("appScreen");
-  const usernameInput = document.getElementById("usernameInput");
-  const sidebar = document.getElementById("sidebar");
-  const sidebarOverlay = document.getElementById("sidebarOverlay");
+let mode="general";
+const ch=document.getElementById("ch"),i=document.getElementById("i"),f=document.getElementById("f"),s=document.getElementById("s");
+const sid="u_"+Math.random().toString(36).substring(2,10);
+function login(){const n=document.getElementById("un").value.trim();if(!n){alert("اكتب اسمك");return}localStorage.setItem("mu",n);show(n)}
+function show(n){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");document.getElementById("wm").innerHTML="👋 مرحباً <b>"+n+"</b>! أنا Moka.AI. اختر النسخة من ☰"}
+function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.removeItem("mu");location.reload()}
+function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
+function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
+function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة"};
+ch.innerHTML='<div class="mw b"><div class="m">✅ تم التبديل إلى '+names[m]+'</div></div>';closeS()}
+window.onload=()=>{const n=localStorage.getItem("mu");if(n){document.getElementById("un").value=n;show(n)}}
+let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v);document.getElementById("vc").textContent=v;
+function add(t,c){const w=document.createElement("div");w.className="mw "+c;const m=document.createElement("div");m.className="m";m.textContent=t;w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight}
+function typ(){const w=document.createElement("div");w.className="mw b";const t=document.createElement("div");t.className="tp";t.innerHTML="<span></span><span></span><span></span>";w.appendChild(t);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w}
+f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";s.disabled=true;const ty=typ();
+try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode})});
+const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove();add("تعذر الاتصال","b")}finally{s.disabled=false;i.focus()}};
+function openM(){document.getElementById("mo").classList.add("on")}
+function closeM(){document.getElementById("mo").classList.remove("on")}
+async function doSum(){const t=document.getElementById("st").value.trim();if(!t){alert("الصق النص");return}closeM();document.getElementById("st").value="";
+add("📝 لخّص: "+t.substring(0,80)+"...","u");const ty=typ();
+try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
+const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
+</script></body></html>"""
 
-  let currentMode = "general";
-
-  function showApp(name) {
-    loginScreen.classList.add("hidden");
-    appScreen.classList.add("active");
-    document.getElementById("welcomeMsg").innerHTML = 
-      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>. اختر النسخة من القائمة ☰";
-  }
-
-  function loginLocal() {
-    const name = usernameInput.value.trim();
-    if (!name) { alert("الرجاء كتابة اسمك"); return; }
-    localStorage.setItem("moka_user", name);
-    showApp(name);
-  }
-
-  function logout() {
-    if (!confirm("هل تريد تسجيل الخروج؟")) return;
-    localStorage.removeItem("moka_user");
-    location.reload();
-  }
-
-  function openSidebar() {
-    sidebar.classList.add("active");
-    sidebarOverlay.classList.add("active");
-  }
-  function closeSidebar() {
-    sidebar.classList.remove("active");
-    sidebarOverlay.classList.remove("active");
-  }
-
-  function switchMode(mode) {
-    currentMode = mode;
-    document.querySelectorAll(".mode-btn").forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.mode === mode);
-    });
-    const names = {
-      general: "🧠 النسخة العامة",
-      math: "📐 نسخة الرياضيات",
-      code: "💻 نسخة البرمجة"
-    };
-    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">✅ تم التبديل إلى <b>' + names[mode] + '</b>. كيف يمكنني مساعدتك؟</div></div>';
-    closeSidebar();
-  }
-
-  window.addEventListener("load", () => {
-    const saved = localStorage.getItem("moka_user");
-    if (saved) {
-      usernameInput.value = saved;
-      showApp(saved);
-    }
-  });
-
-  let count = localStorage.getItem('moka_visits');
-  if (!count) { count = 1; } else { count = parseInt(count) + 1; }
-  localStorage.setItem('moka_visits', count);
-  document.getElementById('visitCount').textContent = count;
-
-  const chat = document.getElementById("chat");
-  const input = document.getElementById("input");
-  const form = document.getElementById("form");
-  const sendBtn = document.getElementById("sendBtn");
-  const sessionId = "user_" + Math.random().toString(36).substring(2, 10);
-
-  function addMessage(text, cls) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "msg-wrapper " + cls;
-    const msg = document.createElement("div");
-    msg.className = "msg";
-    msg.textContent = text;
-    wrapper.appendChild(msg);
-    if (cls === "bot") {
-      const copyBtn = document.createElement("button");
-      copyBtn.className = "copy-btn";
-      copyBtn.textContent = "📋";
-      copyBtn.onclick = () => {
-        navigator.clipboard.writeText(text);
-        copyBtn.textContent = "✅";
-        setTimeout(() => copyBtn.textContent = "📋", 1500);
-      };
-      wrapper.appendChild(copyBtn);
-    }
-    chat.appendChild(wrapper);
-    chat.scrollTop = chat.scrollHeight;
-    return wrapper;
-  }
-
-  function addTyping() {
-    const wrapper = document.createElement("div");
-    wrapper.className = "msg-wrapper bot";
-    const typing = document.createElement("div");
-    typing.className = "typing";
-    typing.innerHTML = '<span></span><span></span><span></span>';
-    wrapper.appendChild(typing);
-    chat.appendChild(wrapper);
-    chat.scrollTop = chat.scrollHeight;
-    return wrapper;
-  }
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const text = input.value.trim();
-    if (!text) return;
-    addMessage(text, "user");
-    input.value = "";
-    sendBtn.disabled = true;
-    const typing = addTyping();
-    try {
-      const r = await fetch("/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, session_id: sessionId, mode: currentMode })
-      });
-      const data = await r.json();
-      typing.remove();
-      addMessage(data.reply || "حدث خطأ.", "bot");
-    } catch (err) {
-      typing.remove();
-      addMessage("تعذر الاتصال بالخادم.", "bot");
-  } finally {
-  sendBtn.disabled = false;
-  input.focus();
-}
+@app.route("/")
+def home(): return render_template_string(HTML)
+@app.route("/manifest.json")
+def manifest(): return {"name":"Moka.AI","short_name":"Moka.AI","start_url":"/","display":"standalone","background_color":"#0d0d0d","theme_color":"#10a37f","lang":"ar","dir":"rtl"}
+@app.post("/chat")
+def chat():
+    try:
+        d = request.get_json(silent=True) or {}
+        return jsonify({"reply": ask_ai(d.get("message",""), d.get("session_id","default"), d.get("mode","general"))})
+    except Exception as e: return jsonify({"reply":f"خطأ: {str(e)}"}),500
+@app.post("/summarize")
+def summ():
+    try:
+        d = request.get_json(silent=True) or {}
+        return jsonify({"summary": summarize(d.get("text",""))})
+    except Exception as e: return jsonify({"summary":f"خطأ: {str(e)}"}),500
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
