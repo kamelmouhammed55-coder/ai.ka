@@ -13,40 +13,66 @@ MODELS = [
     "qwen/qwen3.6-27b",
 ]
 
-SYSTEM_PROMPT = """أنت Moka.AI، مساعد ذكي عربي متطور.
+# ====== النسخ المختلفة ======
+MODES = {
+    "general": {
+        "name": "🧠 النسخة العامة",
+        "icon": "🧠",
+        "prompt": """أنت Moka.AI، مساعد ذكي عربي متطور.
 صانعك ومطورك هو "محمد كامل".
 لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
 إذا سُئلت عن هويتك، قل: "أنا Moka.AI، مساعد ذكي من تطوير محمد كامل."
-
-معلومات عن المستخدم (محمد كامل):
-- الاسم الكامل: محمد كامل
-- العمر: 15 سنة
-- تاريخ الميلاد: 16 أفريل 2011
-
-أجب بوضوح ودقة وبأسلوب ودود. استخدم العربية الفصحى المبسطة."""
+أجب بوضوح ودقة وبأسلوب ودود. يمكنك الإجابة عن أي سؤال في أي مجال."""
+    },
+    "math": {
+        "name": "📐 نسخة الرياضيات",
+        "icon": "📐",
+        "prompt": """أنت Moka.AI، خبير في الرياضيات.
+صانعك ومطورك هو "محمد كامل".
+مهمتك: حل المسائل الرياضية خطوة بخطوة، مع شرح كل خطوة بوضوح.
+- اكتب المعادلات بشكل منظم.
+- اشرح القوانين المستخدمة.
+- أعطِ النتيجة النهائية بشكل واضح.
+- يمكنك حل: الجبر، الهندسة، التفاضل، التكامل، الإحصاء، وغيرها."""
+    },
+    "code": {
+        "name": "💻 نسخة البرمجة",
+        "icon": "💻",
+        "prompt": """أنت Moka.AI، خبير في البرمجة.
+صانعك ومطورك هو "محمد كامل".
+مهمتك: مساعدة المستخدم في كتابة وشرح الأكواد البرمجية.
+- اكتب كوداً نظيفاً ومرتباً.
+- اشرح ما يفعله الكود.
+- استخدم Python, JavaScript, HTML, CSS, وغيرها.
+- ساعد في تصحيح الأخطاء."""
+    },
+}
 
 conversations = {}
 
-def ask_ai(user_message, session_id="default", custom_prompt=None):
+def ask_ai(user_message, session_id="default", mode="general"):
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود."
     if not GROQ_API_KEY.startswith("gsk_"):
         return "⚠️ المفتاح غير صحيح."
 
-    if session_id not in conversations:
-        conversations[session_id] = [
-            {"role": "system", "content": custom_prompt or SYSTEM_PROMPT}
+    prompt = MODES.get(mode, MODES["general"])["prompt"]
+    conv_key = f"{session_id}_{mode}"
+
+    if conv_key not in conversations:
+        conversations[conv_key] = [
+            {"role": "system", "content": prompt}
         ]
 
-    conversations[session_id].append({"role": "user", "content": user_message})
-    if len(conversations[session_id]) > 21:
-        conversations[session_id] = [conversations[session_id][0]] + conversations[session_id][-20:]
+    conversations[conv_key].append({"role": "user", "content": user_message})
+    if len(conversations[conv_key]) > 21:
+        conversations[conv_key] = [conversations[conv_key][0]] + conversations[conv_key][-20:]
 
     last_error = None
     for model_name in MODELS:
         payload = {
             "model": model_name,
-            "messages": conversations[session_id],
+            "messages": conversations[conv_key],
             "temperature": 0.7,
             "max_tokens": 2048,
         }
@@ -64,7 +90,7 @@ def ask_ai(user_message, session_id="default", custom_prompt=None):
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.loads(r.read().decode("utf-8"))
             reply = data["choices"][0]["message"]["content"]
-            conversations[session_id].append({"role": "assistant", "content": reply})
+            conversations[conv_key].append({"role": "assistant", "content": reply})
             return reply
         except Exception as e:
             last_error = str(e)
@@ -105,12 +131,10 @@ def summarize_text(text):
     return "⚠️ تعذر التلخيص حالياً."
 
 
-# ====== الشعار (SVG) ======
 LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#10a37f"/><stop offset="100%" style="stop-color:#7c3aed"/></linearGradient></defs><polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#g)"/><text x="50" y="65" font-family="Arial" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>'''
 
 LOGO_BASE64 = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+"
 
-# ====== الواجهة ======
 HTML = r"""
 <!doctype html>
 <html lang="ar" dir="rtl">
@@ -134,6 +158,8 @@ HTML = r"""
     height: 100vh; overflow: hidden;
     display: flex; flex-direction: column;
   }
+
+  /* شاشة الدخول */
   #loginScreen {
     position: fixed; top: 0; left: 0;
     width: 100%; height: 100%;
@@ -144,61 +170,68 @@ HTML = r"""
   }
   #loginScreen.hidden { display: none; }
   .login-logo { width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(16,163,127,0.4)); }
-  .login-title {
-    font-size: 36px; font-weight: bold; margin-bottom: 8px;
+  .login-title { font-size: 36px; font-weight: bold; margin-bottom: 8px;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .login-subtitle { font-size: 14px; color: #888; margin-bottom: 30px; }
-  .login-box {
-    width: 100%; max-width: 360px;
-    background: rgba(26,26,26,0.95); border: 1px solid #333;
-    border-radius: 20px; padding: 24px;
-    backdrop-filter: blur(10px);
-  }
-  .login-box label {
-    display: block; font-size: 13px; color: #aaa;
-    margin-bottom: 8px;
-  }
-  .login-box input {
-    width: 100%; padding: 14px 18px;
-    border-radius: 12px; border: 1px solid #333;
-    background: #0d0d0d; color: #ececec;
-    font-size: 16px; outline: none;
-    margin-bottom: 16px;
-  }
+  .login-box { width: 100%; max-width: 360px; background: rgba(26,26,26,0.95);
+    border: 1px solid #333; border-radius: 20px; padding: 24px; }
+  .login-box label { display: block; font-size: 13px; color: #aaa; margin-bottom: 8px; }
+  .login-box input { width: 100%; padding: 14px 18px; border-radius: 12px;
+    border: 1px solid #333; background: #0d0d0d; color: #ececec;
+    font-size: 16px; outline: none; margin-bottom: 16px; }
   .login-box input:focus { border-color: var(--accent); }
-  .login-btn {
-    width: 100%; padding: 14px;
-    border-radius: 12px; border: none;
+  .login-btn { width: 100%; padding: 14px; border-radius: 12px; border: none;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
-    color: white; font-size: 16px; font-weight: bold;
-    cursor: pointer;
-  }
-  .login-btn:active { transform: scale(0.98); }
+    color: white; font-size: 16px; font-weight: bold; cursor: pointer; }
   .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #555; }
 
+  /* التطبيق */
   #appScreen { display: none; height: 100vh; flex-direction: column; }
   #appScreen.active { display: flex; }
 
+  /* القائمة الجانبية */
+  .sidebar-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; background: rgba(0,0,0,0.6);
+    z-index: 998;
+  }
+  .sidebar-overlay.active { display: block; }
+  .sidebar {
+    position: fixed; top: 0; right: -300px;
+    width: 280px; height: 100%; background: #171717;
+    border-left: 1px solid #333; z-index: 999;
+    transition: right 0.3s ease; padding: 20px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .sidebar.active { right: 0; }
+  .sidebar h2 { font-size: 16px; color: #aaa; margin-bottom: 10px; }
+  .mode-btn {
+    padding: 14px; border-radius: 12px; border: 1px solid #333;
+    background: #1e1e1e; color: #ececec; cursor: pointer;
+    text-align: right; font-size: 14px; display: flex; align-items: center; gap: 10px;
+  }
+  .mode-btn.active { border-color: var(--accent); background: rgba(16,163,127,0.1); }
+  .logout-btn {
+    margin-top: auto; padding: 14px; border-radius: 12px;
+    border: 1px solid #dc2626; background: transparent;
+    color: #dc2626; cursor: pointer; font-size: 14px;
+  }
+
   .header {
     padding: 14px 16px; text-align: center;
-    border-bottom: 1px solid var(--border);
-    background: var(--sidebar);
+    border-bottom: 1px solid var(--border); background: var(--sidebar);
     display: flex; align-items: center; justify-content: space-between;
   }
   .title-group { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
   .header-logo { width: 32px; height: 32px; }
-  h1 {
-    font-size: 18px; font-weight: 600;
+  h1 { font-size: 18px; font-weight: 600;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
-  .header-btns { display: flex; gap: 6px; }
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .header-btn {
     background: transparent; border: 1px solid var(--border);
-    color: #aaa; padding: 6px 10px; border-radius: 8px;
-    cursor: pointer; font-size: 12px;
+    color: #aaa; padding: 8px 10px; border-radius: 8px;
+    cursor: pointer; font-size: 14px;
   }
   .header-btn:hover { background: #222; }
 
@@ -209,102 +242,59 @@ HTML = r"""
   .msg-wrapper { display: flex; max-width: 88%; animation: slideIn 0.3s ease; }
   .msg-wrapper.user { align-self: flex-end; }
   .msg-wrapper.bot { align-self: flex-start; }
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .msg {
-    padding: 14px 18px; border-radius: 20px;
-    line-height: 1.7; white-space: pre-wrap;
-    word-wrap: break-word; font-size: 15px; flex: 1;
-  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .msg { padding: 14px 18px; border-radius: 20px; line-height: 1.7;
+    white-space: pre-wrap; word-wrap: break-word; font-size: 15px; flex: 1; }
   .user .msg { background: var(--user-bubble); border-bottom-left-radius: 6px; }
-  .bot .msg {
-    background: var(--bot-bubble); border: 1px solid var(--border);
-    border-bottom-right-radius: 6px;
-  }
-  .copy-btn {
-    background: transparent; border: none; color: #666;
+  .bot .msg { background: var(--bot-bubble); border: 1px solid var(--border); border-bottom-right-radius: 6px; }
+  .copy-btn { background: transparent; border: none; color: #666;
     cursor: pointer; font-size: 14px; padding: 4px 8px;
-    margin-right: 8px; align-self: flex-end; opacity: 0;
-  }
+    margin-right: 8px; align-self: flex-end; opacity: 0; }
   .msg-wrapper.bot:hover .copy-btn { opacity: 1; }
-  .typing {
-    display: inline-flex; gap: 5px; align-items: center;
+  .typing { display: inline-flex; gap: 5px; align-items: center;
     padding: 14px 18px; background: var(--bot-bubble);
-    border: 1px solid var(--border); border-radius: 20px;
-  }
-  .typing span {
-    width: 7px; height: 7px; background: #888;
-    border-radius: 50%; animation: bounce 1.2s infinite;
-  }
+    border: 1px solid var(--border); border-radius: 20px; }
+  .typing span { width: 7px; height: 7px; background: #888; border-radius: 50%; animation: bounce 1.2s infinite; }
   .typing span:nth-child(2) { animation-delay: 0.2s; }
   .typing span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes bounce {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-6px); }
-  }
-  .input-area {
-    padding: 16px; background: var(--bg);
-    display: flex; gap: 10px;
-    border-top: 1px solid var(--border); align-items: center;
-  }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+  .input-area { padding: 16px; background: var(--bg); display: flex; gap: 10px;
+    border-top: 1px solid var(--border); align-items: center; }
   .input-wrapper { flex: 1; }
-  input {
-    width: 100%; padding: 16px 20px;
-    border-radius: 28px; border: 1px solid var(--border);
-    background: var(--input-bg); color: var(--text);
-    font-size: 16px; outline: none;
-  }
+  input { width: 100%; padding: 16px 20px; border-radius: 28px;
+    border: 1px solid var(--border); background: var(--input-bg);
+    color: var(--text); font-size: 16px; outline: none; }
   input:focus { border-color: var(--accent); }
   input::placeholder { color: #666; }
-  button.send {
-    width: 52px; height: 52px; border-radius: 50%;
-    border: none; background: var(--accent);
-    color: white; font-size: 20px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  button.send:active { transform: scale(0.92); }
+  button.send { width: 52px; height: 52px; border-radius: 50%; border: none;
+    background: var(--accent); color: white; font-size: 20px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   button.send:disabled { opacity: 0.4; }
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
-  .visitor-counter {
-    text-align: center; padding: 8px; font-size: 12px;
-    color: #666; border-top: 1px solid var(--border);
-    background: var(--sidebar);
-  }
-  .modal-overlay {
-    display: none; position: fixed; top: 0; left: 0;
+  .visitor-counter { text-align: center; padding: 8px; font-size: 12px;
+    color: #666; border-top: 1px solid var(--border); background: var(--sidebar); }
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0;
     width: 100%; height: 100%; background: rgba(0,0,0,0.7);
-    z-index: 1000; justify-content: center; align-items: center;
-  }
+    z-index: 1000; justify-content: center; align-items: center; }
   .modal-overlay.active { display: flex; }
-  .modal {
-    background: #1a1a1a; border: 1px solid #333; border-radius: 16px;
+  .modal { background: #1a1a1a; border: 1px solid #333; border-radius: 16px;
     padding: 20px; width: 90%; max-width: 500px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
+    display: flex; flex-direction: column; gap: 12px; }
   .modal h2 { font-size: 18px; margin-bottom: 4px; }
-  .modal textarea {
-    width: 100%; height: 200px; padding: 14px;
-    border-radius: 12px; border: 1px solid #333;
-    background: #0d0d0d; color: #ececec;
-    font-family: inherit; font-size: 14px; resize: vertical;
-    outline: none;
-  }
+  .modal textarea { width: 100%; height: 200px; padding: 14px;
+    border-radius: 12px; border: 1px solid #333; background: #0d0d0d;
+    color: #ececec; font-family: inherit; font-size: 14px; resize: vertical; outline: none; }
   .modal textarea:focus { border-color: var(--accent); }
   .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
-  .modal-btn {
-    padding: 10px 20px; border-radius: 10px;
-    border: none; cursor: pointer; font-size: 14px;
-  }
+  .modal-btn { padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer; font-size: 14px; }
   .modal-btn.primary { background: var(--accent); color: white; }
   .modal-btn.secondary { background: #333; color: #ccc; }
 </style>
 </head>
 <body>
 
+<!-- شاشة الدخول -->
 <div id="loginScreen">
   <div class="login-logo">__LOGO_SVG__</div>
   <div class="login-title">Moka.AI</div>
@@ -317,17 +307,31 @@ HTML = r"""
   <div class="login-footer">Moka.AI © 2026</div>
 </div>
 
+<!-- القائمة الجانبية -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div class="sidebar" id="sidebar">
+  <h2>📋 اختر النسخة</h2>
+  <button class="mode-btn active" data-mode="general" onclick="switchMode('general')">
+    <span>🧠</span> النسخة العامة
+  </button>
+  <button class="mode-btn" data-mode="math" onclick="switchMode('math')">
+    <span>📐</span> نسخة الرياضيات
+  </button>
+  <button class="mode-btn" data-mode="code" onclick="switchMode('code')">
+    <span>💻</span> نسخة البرمجة
+  </button>
+  <button class="logout-btn" onclick="logout()">🚪 تسجيل الخروج</button>
+</div>
+
+<!-- التطبيق -->
 <div id="appScreen">
   <div class="header">
-    <div class="header-btns">
-      <button class="header-btn" onclick="clearChat()">🗑️</button>
-      <button class="header-btn" onclick="openSummary()">📝 تلخيص</button>
-    </div>
+    <button class="header-btn" onclick="openSidebar()">☰</button>
     <div class="title-group">
       <div class="header-logo">__LOGO_SVG__</div>
       <h1>Moka.AI</h1>
     </div>
-    <div style="width: 90px;"></div>
+    <div style="width: 50px;"></div>
   </div>
   <div id="chat">
     <div class="msg-wrapper bot">
@@ -345,6 +349,7 @@ HTML = r"""
   </div>
 </div>
 
+<!-- نافذة التلخيص -->
 <div class="modal-overlay" id="summaryModal">
   <div class="modal">
     <h2>📝 تلخيص درس</h2>
@@ -361,12 +366,16 @@ HTML = r"""
   const loginScreen = document.getElementById("loginScreen");
   const appScreen = document.getElementById("appScreen");
   const usernameInput = document.getElementById("usernameInput");
+  const sidebar = document.getElementById("sidebar");
+  const sidebarOverlay = document.getElementById("sidebarOverlay");
+
+  let currentMode = "general";
 
   function showApp(name) {
     loginScreen.classList.add("hidden");
     appScreen.classList.add("active");
     document.getElementById("welcomeMsg").innerHTML = 
-      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء!";
+      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>. اختر النسخة من القائمة ☰";
   }
 
   function loginLocal() {
@@ -374,6 +383,35 @@ HTML = r"""
     if (!name) { alert("الرجاء كتابة اسمك"); return; }
     localStorage.setItem("moka_user", name);
     showApp(name);
+  }
+
+  function logout() {
+    if (!confirm("هل تريد تسجيل الخروج؟")) return;
+    localStorage.removeItem("moka_user");
+    location.reload();
+  }
+
+  function openSidebar() {
+    sidebar.classList.add("active");
+    sidebarOverlay.classList.add("active");
+  }
+  function closeSidebar() {
+    sidebar.classList.remove("active");
+    sidebarOverlay.classList.remove("active");
+  }
+
+  function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll(".mode-btn").forEach(btn => {
+      btn.classList.toggle("active", btn.dataset.mode === mode);
+    });
+    const names = {
+      general: "🧠 النسخة العامة",
+      math: "📐 نسخة الرياضيات",
+      code: "💻 نسخة البرمجة"
+    };
+    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">✅ تم التبديل إلى <b>' + names[mode] + '</b>. كيف يمكنني مساعدتك؟</div></div>';
+    closeSidebar();
   }
 
   window.addEventListener("load", () => {
@@ -430,39 +468,6 @@ HTML = r"""
     return wrapper;
   }
 
-  function clearChat() {
-    chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة.</div></div>';
-  }
-
-  function openSummary() {
-    document.getElementById("summaryModal").classList.add("active");
-    document.getElementById("summaryText").focus();
-  }
-  function closeSummary() {
-    document.getElementById("summaryModal").classList.remove("active");
-  }
-  async function doSummary() {
-    const text = document.getElementById("summaryText").value.trim();
-    if (!text) { alert("الرجاء لصق نص الدرس أولاً"); return; }
-    closeSummary();
-    document.getElementById("summaryText").value = "";
-    addMessage("📝 لخّص هذا الدرس:\n" + text.substring(0, 100) + (text.length > 100 ? "..." : ""), "user");
-    const typing = addTyping();
-    try {
-      const r = await fetch("/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text })
-      });
-      const data = await r.json();
-      typing.remove();
-      addMessage(data.summary || "حدث خطأ.", "bot");
-    } catch (err) {
-      typing.remove();
-      addMessage("تعذر التلخيص.", "bot");
-    }
-  }
-
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
@@ -475,7 +480,7 @@ HTML = r"""
       const r = await fetch("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, session_id: sessionId })
+        body: JSON.stringify({ message: text, session_id: sessionId, mode: currentMode })
       });
       const data = await r.json();
       typing.remove();
@@ -483,74 +488,7 @@ HTML = r"""
     } catch (err) {
       typing.remove();
       addMessage("تعذر الاتصال بالخادم.", "bot");
-    } finally {
-      sendBtn.disabled = false;
-      input.focus();
-    }
-  });
-</script>
-</body>
-</html>
-"""
-
-# استبدال الشعار في HTML
-HTML = HTML.replace("__LOGO_SVG__", LOGO_SVG).replace("__LOGO_BASE64__", LOGO_BASE64)
-
-@app.route("/")
-def home():
-    return render_template_string(HTML)
-
-@app.route("/manifest.json")
-def manifest():
-    return {
-        "name": "Moka.AI - مساعدك الذكي",
-        "short_name": "Moka.AI",
-        "description": "مساعد ذكي عربي من تطوير محمد كامل",
-        "start_url": "/",
-        "display": "standalone",
-        "background_color": "#0d0d0d",
-        "theme_color": "#10a37f",
-        "orientation": "portrait",
-        "lang": "ar",
-        "dir": "rtl",
-        "icons": [
-            {
-                "src": "data:image/svg+xml;base64," + LOGO_BASE64,
-                "sizes": "192x192",
-                "type": "image/svg+xml",
-                "purpose": "any maskable"
-            },
-            {
-                "src": "data:image/svg+xml;base64," + LOGO_BASE64,
-                "sizes": "512x512",
-                "type": "image/svg+xml",
-                "purpose": "any maskable"
-            }
-        ]
-    }
-
-@app.post("/chat")
-def chat_api():
-    try:
-        data = request.get_json(silent=True) or {}
-        message = data.get("message", "")
-        session_id = data.get("session_id", "default")
-        reply = ask_ai(message, session_id)
-        return jsonify({"reply": reply})
-    except Exception as e:
-        return jsonify({"reply": f"حدث خطأ: {str(e)}"}), 500
-
-@app.post("/summarize")
-def summarize_api():
-    try:
-        data = request.get_json(silent=True) or {}
-        text = data.get("text", "")
-        if not text:
-            return jsonify({"summary": "الرجاء إرسال نص للتلخيص."})
-        summary = summarize_text(text)
-        return jsonify({"summary": summary})
-    except Exception as e:
-        return jsonify({"summary": f"حدث خطأ: {str(e)}"}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+  } finally {
+  sendBtn.disabled = false;
+  input.focus();
+}
