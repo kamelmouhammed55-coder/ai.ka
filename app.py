@@ -6,9 +6,8 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
-# ====== مفتاح لوحة التحكم السرية ======
-ADMIN_KEY = "moka2026kamel"  # غيّره إلى أي كلمة سر تريدها
-
+ADMIN_KEY = "moka2026kamel"
+BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
 
 def load_stats():
@@ -18,7 +17,7 @@ def load_stats():
     except Exception:
         return {"visitors": 0, "logins": 0, "messages": 0, "summaries": 0,
                 "modes": {"general": 0, "math": 0, "code": 0, "religion": 0},
-                "recent": []}
+                "recent": [], "messages_log": [], "devices": []}
 
 def save_stats(s):
     try:
@@ -35,17 +34,37 @@ CURRICULUM = """
 - شعبة الرياضيات (3 ثانوي): رياضيات معامل 8، فيزياء معامل 6.
 """
 
+FORBIDDEN = ["جنس", "sex", "porn", "إباحي", "عاري", "شهوة", "عاهر", "زنى", "زنا", "خلاعة", "فاحشة"]
+
+def is_forbidden(text):
+    t = text.lower()
+    return any(w in t for w in FORBIDDEN)
+
 PROMPTS = {
-    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية البسيطة. لا تستخدم LaTeX. لا تقل أنك GPT.\n\n" + CURRICULUM,
+    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية البسيطة. لا تستخدم LaTeX. لا تقل أنك GPT. إذا سُئلت عن محتوى غير لائق، ارفض بأدب ووجه المستخدم للسؤال في مواضيع مفيدة.\n\n" + CURRICULUM,
     "math": "أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة بسيطة. لا تستخدم LaTeX.\n\n" + CURRICULUM,
     "code": "أنت Moka.AI، خبير برمجة. اكتب واشرح الأكواد بوضوح.",
-    "religion": "أنت Moka.AI، مساعد في العلوم الإسلامية. أجب بالقرآن والسنة. اذكر الأدلة.",
+    "religion": """أنت Moka.AI، مساعد متخصص في العلوم الإسلامية.
+مصادرك الموثوقة:
+- القرآن الكريم (الرسم العثماني).
+- صحيح البخاري وصحيح مسلم.
+- كتب التفسير المعتمدة (ابن كثير، الطبري، القرطبي).
+- كتب الفقه المعتمدة (المذاهب الأربعة).
+قواعد مهمة:
+1. إذا سُئلت عن آية، اذكرها من القرآن الكريم بدقة.
+2. إذا سُئلت عن حديث، اذكر درجته (صحيح/ضعيف) ومصدره.
+3. إذا كان السؤال عن خلاف فقهي، اذكر آراء المذاهب الأربعة.
+4. إذا لم تكن متأكداً من معلومة، قل "الله أعلم" ولا تفتِ بغير علم.
+5. لا تُصدر فتاوى في مسائل معقدة، ووجّه السائل لأهل العلم.
+6. كن محترماً، مؤدباً، واستخدم اللغة العربية الفصحى.
+7. اذكر الأدلة عند الإمكان (آية أو حديث).""",
 }
 
 convs = {}
 
 def ask_ai(msg, sid, mode):
     if not GROQ_API_KEY: return "⚠️ مفتاح API غير موجود."
+    if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة. اسألني عن شيء مفيد."
     key = f"{sid}_{mode}"
     if key not in convs:
         convs[key] = [{"role": "system", "content": PROMPTS.get(mode, PROMPTS["general"])}]
@@ -83,7 +102,6 @@ def summarize(text):
         except Exception:
             continue
     return "⚠️ تعذر التلخيص."
-
 HTML = """<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moka.AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#10a37f">
@@ -105,12 +123,15 @@ body{background:#0d0d0d;color:#ececec;font-family:Tahoma,sans-serif;height:100vh
 #app.on{display:flex}
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:998}
 .ov.on{display:block}
-.sb{position:fixed;top:0;right:-300px;width:280px;height:100%;background:#171717;border-left:1px solid #333;z-index:999;transition:right .3s;padding:20px;display:flex;flex-direction:column;gap:10px}
+.sb{position:fixed;top:0;right:-300px;width:280px;height:100%;background:#171717;border-left:1px solid #333;z-index:999;transition:right .3s;padding:20px;display:flex;flex-direction:column;gap:10px;overflow-y:auto}
 .sb.on{right:0}
 .sb h2{font-size:16px;color:#aaa;margin-bottom:10px}
+.avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#10a37f,#7c3aed);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:bold;color:white;margin:0 auto 10px;box-shadow:0 0 20px rgba(16,163,127,.3)}
+.username{text-align:center;font-size:16px;font-weight:bold;margin-bottom:20px;color:#10a37f}
 .mb{padding:14px;border-radius:12px;border:1px solid #333;background:#1e1e1e;color:#ececec;cursor:pointer;text-align:right;font-size:14px}
 .mb.on{border-color:#10a37f;background:rgba(16,163,127,.1)}
 .lo{margin-top:auto;padding:14px;border-radius:12px;border:1px solid #dc2626;background:transparent;color:#dc2626;cursor:pointer}
+.dl{padding:14px;border-radius:12px;border:1px solid #10a37f;background:transparent;color:#10a37f;cursor:pointer;margin-top:10px}
 .hd{padding:14px;border-bottom:1px solid #333;background:#171717;display:flex;align-items:center;justify-content:space-between}
 .tg{display:flex;align-items:center;gap:10px;margin:0 auto}
 .hl{width:32px;height:32px;background:linear-gradient(135deg,#10a37f,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white}
@@ -148,11 +169,15 @@ button.sd:disabled{opacity:.4}
 <div id="login"><div class="lg">M</div><div class="lt">Moka.AI</div><div class="ls">مساعدك الذكي من تطوير محمد كامل</div>
 <div class="lb"><label>👤 اسمك</label><input id="un" placeholder="اكتب اسمك..."><button onclick="login()">🚀 دخول</button></div></div>
 <div class="ov" id="ov" onclick="closeS()"></div>
-<div class="sb" id="sb"><h2>📋 اختر النسخة</h2>
+<div class="sb" id="sb">
+<div class="avatar" id="avatar">M</div>
+<div class="username" id="uname">مستخدم</div>
+<h2>📋 اختر النسخة</h2>
 <button class="mb on" data-m="general" onclick="sw('general')">🧠 النسخة العامة</button>
 <button class="mb" data-m="math" onclick="sw('math')">📐 نسخة الرياضيات</button>
 <button class="mb" data-m="code" onclick="sw('code')">💻 نسخة البرمجة</button>
 <button class="mb" data-m="religion" onclick="sw('religion')">🕌 نسخة دينية</button>
+<button class="dl" onclick="downloadChat()">💾 تنزيل المحادثة</button>
 <button class="lo" onclick="out()">🚪 تسجيل الخروج</button></div>
 <div id="app"><div class="hd"><button class="hb" onclick="openS()">☰</button>
 <div class="tg"><div class="hl">M</div><h1>Moka.AI</h1></div><div style="width:50px"></div></div>
@@ -169,7 +194,10 @@ fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:J
 function login(){const n=document.getElementById("un").value.trim();if(!n){alert("اكتب اسمك");return}
 localStorage.setItem("mu",n);show(n);
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"login",name:n})});}
-function show(n){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");document.getElementById("wm").innerHTML="👋 مرحباً <b>"+n+"</b>! أنا Moka.AI. اختر النسخة من ☰"}
+function show(n){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");
+document.getElementById("wm").innerHTML="👋 مرحباً <b>"+n+"</b>! أنا Moka.AI. اختر النسخة من ☰";
+document.getElementById("avatar").textContent=n.charAt(0).toUpperCase();
+document.getElementById("uname").textContent=n;}
 function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.removeItem("mu");location.reload()}
 function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
@@ -181,7 +209,7 @@ let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v
 function add(t,c){const w=document.createElement("div");w.className="mw "+c;const m=document.createElement("div");m.className="m";m.textContent=t;w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight}
 function typ(){const w=document.createElement("div");w.className="mw b";const t=document.createElement("div");t.className="tp";t.innerHTML="<span></span><span></span><span></span>";w.appendChild(t);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w}
 f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";s.disabled=true;const ty=typ();
-fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode})});
+fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode,text:t,name:localStorage.getItem("mu")||"?"})});
 try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode})});
 const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove();add("تعذر الاتصال","b")}finally{s.disabled=false;i.focus()}};
 function openM(){document.getElementById("mo").classList.add("on")}
@@ -191,30 +219,46 @@ fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:J
 add("📝 لخّص: "+t.substring(0,80)+"...","u");const ty=typ();
 try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
+function downloadChat(){
+  const name=localStorage.getItem("mu")||"مستخدم";
+  let text="محادثة Moka.AI - "+name+"\\n"+new Date().toLocaleString("ar-DZ")+"\\n";
+  text+="=============================\\n\\n";
+  document.querySelectorAll("#ch .mw").forEach(m=>{
+    const isUser=m.classList.contains("u");
+    const content=m.querySelector(".m");
+    if(content){text+=(isUser?"👤 "+name: "🤖 Moka.AI")+":\\n"+content.textContent+"\\n\\n";}
+  });
+  const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="MokaAI_"+name+"_"+Date.now()+".txt";
+  a.click();
+}
 </script></body></html>"""
-
 ADMIN_HTML = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة التحكم - Moka.AI</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة التحكم</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#0d0d0d;color:#ececec;font-family:Tahoma,sans-serif;padding:20px}
 h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:15px;margin-bottom:20px}
 .card{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:20px;text-align:center}
 .card .num{font-size:32px;font-weight:bold;color:#10a37f;margin-bottom:5px}
 .card .lbl{font-size:13px;color:#888}
 .box{background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:20px;margin-bottom:20px}
 .box h2{font-size:16px;margin-bottom:15px;color:#10a37f}
-.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222;font-size:14px}
-.row:last-child{border:0}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222;font-size:13px;gap:10px;align-items:center;flex-wrap:wrap}
 .mode-bar{display:flex;justify-content:space-between;padding:10px;background:#0d0d0d;border-radius:8px;margin-bottom:8px}
+.msg-item{background:#0d0d0d;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
+.msg-item .meta{color:#666;font-size:11px;margin-bottom:5px}
+.block-btn{background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px}
 </style></head><body>
 <h1>📊 لوحة تحكم Moka.AI</h1>
 <div class="grid">
-<div class="card"><div class="num">{{s.visitors}}</div><div class="lbl">👁️ الزوار الكلي</div></div>
-<div class="card"><div class="num">{{s.logins}}</div><div class="lbl">🔑 تسجيلات الدخول</div></div>
-<div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 الرسائل المُرسلة</div></div>
-<div class="card"><div class="num">{{s.summaries}}</div><div class="lbl">📝 عمليات التلخيص</div></div>
+<div class="card"><div class="num">{{s.visitors}}</div><div class="lbl">👁️ الزوار</div></div>
+<div class="card"><div class="num">{{s.logins}}</div><div class="lbl">🔑 تسجيلات</div></div>
+<div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 رسائل</div></div>
+<div class="card"><div class="num">{{s.summaries}}</div><div class="lbl">📝 تلخيص</div></div>
 </div>
 <div class="box"><h2>📈 استخدام النسخ</h2>
 <div class="mode-bar"><span>🧠 عامة</span><b>{{s.modes.general}}</b></div>
@@ -222,9 +266,34 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <div class="mode-bar"><span>💻 برمجة</span><b>{{s.modes.code}}</b></div>
 <div class="mode-bar"><span>🕌 دينية</span><b>{{s.modes.religion}}</b></div>
 </div>
+<div class="box"><h2>💬 كل المحادثات</h2>
+{% for m in s.messages_log[-50:]|reverse %}
+<div class="msg-item">
+<div class="meta">👤 {{m.name}} | 📱 {{m.ip}} | 🧠 {{m.mode}} | 🕐 {{m.time}}</div>
+<div>{{m.text}}</div>
+</div>
+{% endfor %}
+</div>
 <div class="box"><h2>🕐 آخر 20 زيارة</h2>
 {% for r in s.recent[-20:]|reverse %}
-<div class="row"><span>{{r.name}}</span><span style="color:#666">{{r.time}}</span></div>
+<div class="row">
+<span>👤 {{r.name}}</span>
+<span style="color:#888">📱 {{r.device}}</span>
+<span style="color:#666">{{r.ip}}</span>
+<span style="color:#666">{{r.time}}</span>
+<a href="/block/{{r.ip}}?key={{key}}" class="block-btn">🚫</a>
+</div>
+{% endfor %}
+</div>
+<div class="box"><h2>📱 آخر 20 جهاز</h2>
+{% for d in s.devices[-20:]|reverse %}
+<div class="row">
+<span>📱 {{d.device}}</span>
+<span style="color:#888">🌐 {{d.browser}}</span>
+<span style="color:#666">{{d.ip}}</span>
+<span style="color:#666">{{d.time}}</span>
+<a href="/block/{{d.ip}}?key={{key}}" class="block-btn">🚫</a>
+</div>
 {% endfor %}
 </div>
 </body></html>"""
@@ -234,46 +303,59 @@ def home(): return render_template_string(HTML)
 
 @app.route("/manifest.json")
 def manifest():
-    return {
-        "name": "Moka.AI - مساعدك الذكي", "short_name": "Moka.AI",
-        "start_url": "/", "display": "standalone",
-        "background_color": "#0d0d0d", "theme_color": "#10a37f",
-        "orientation": "portrait", "lang": "ar", "dir": "rtl",
-        "icons": [{"src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable"}]
-    }
+    return {"name":"Moka.AI","short_name":"Moka.AI","start_url":"/","display":"standalone",
+            "background_color":"#0d0d0d","theme_color":"#10a37f","orientation":"portrait","lang":"ar","dir":"rtl"}
 
 @app.route("/sw.js")
 def sw():
-    return """
-const CACHE='moka-v1';
-self.addEventListener('install',e=>self.skipWaiting());
-self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
-self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));
-""", 200, {'Content-Type': 'application/javascript'}
+    return "const CACHE='moka-v1';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.route("/admin")
 def admin():
     if request.args.get("key") != ADMIN_KEY:
-        return "🔒 ممنوع. استخدم المفتاح السري.", 403
+        return "🔒 ممنوع.", 403
     s = load_stats()
-    return render_template_string(ADMIN_HTML, s=s)
+    return render_template_string(ADMIN_HTML, s=s, key=ADMIN_KEY)
+
+@app.route("/block/<ip>")
+def block_ip(ip):
+    if request.args.get("key") != ADMIN_KEY: return "🔒", 403
+    BLOCKED_IPS.add(ip)
+    return f"✅ تم حظر {ip}. <a href='/admin?key={ADMIN_KEY}'>العودة</a>"
 
 @app.route("/track", methods=["POST"])
 def track():
     try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
+        if ip in BLOCKED_IPS:
+            return jsonify({"ok": False, "blocked": True}), 403
         d = request.get_json(silent=True) or {}
         t = d.get("type", "")
+        ua = request.headers.get("User-Agent", "?")
         s = load_stats()
+        device = "غير معروف"; browser = "غير معروف"
+        if "Android" in ua: device = "Android"
+        elif "iPhone" in ua or "iPad" in ua: device = "iPhone/iPad"
+        elif "Windows" in ua: device = "Windows"
+        elif "Mac" in ua: device = "Mac"
+        if "Chrome" in ua: browser = "Chrome"
+        elif "Firefox" in ua: browser = "Firefox"
+        elif "Safari" in ua: browser = "Safari"
+        elif "Edge" in ua: browser = "Edge"
         if t == "visit":
             s["visitors"] += 1
+            s["devices"].append({"ip": ip[:15], "device": device, "browser": browser, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
+            s["devices"] = s["devices"][-50:]
         elif t == "login":
             s["logins"] += 1
-            s["recent"].append({"name": d.get("name", "?"), "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
+            s["recent"].append({"name": d.get("name", "?"), "ip": ip[:15], "device": device, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
             s["recent"] = s["recent"][-50:]
         elif t == "message":
             s["messages"] += 1
             m = d.get("mode", "general")
             if m in s["modes"]: s["modes"][m] += 1
+            s["messages_log"].append({"ip": ip[:15], "name": d.get("name", "?"), "text": d.get("text", "")[:200], "mode": m, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
+            s["messages_log"] = s["messages_log"][-100:]
         elif t == "summary":
             s["summaries"] += 1
         save_stats(s)
@@ -284,6 +366,9 @@ def track():
 @app.post("/chat")
 def chat():
     try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
+        if ip in BLOCKED_IPS:
+            return jsonify({"reply": "🚫 تم حظرك."}), 403
         d = request.get_json(silent=True) or {}
         return jsonify({"reply": ask_ai(d.get("message",""), d.get("session_id","default"), d.get("mode","general"))})
     except Exception as e: return jsonify({"reply":f"خطأ: {str(e)}"}),500
