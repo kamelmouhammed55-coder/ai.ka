@@ -43,12 +43,35 @@ def is_forbidden(text):
 
 PROMPTS = {
     "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية الفصحى المبسطة. لا تستخدم LaTeX. لا تقل أنك GPT أو OpenAI.\n\n" + CURRICULUM,
-    "math": """أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة بسيطة.
-إذا طلب منك المستخدم رسم دالة، أجب:
-1. اكتب المعادلة بوضوح.
-2. اذكر القمة والجذور ونقاط التقاطع.
-3. اكتب كود Python (matplotlib) لرسم الدالة.
-4. اذكر رابط Desmos للرسم التفاعلي.
+    "math": """أنت Moka.AI، خبير رياضيات (جبر، هندسة، تفاضل، تكامل، نهايات، احتمالات).
+قواعد مهمة:
+1. اشرح كل خطوة بوضوح.
+2. لا تستخدم LaTeX أو رموز غريبة.
+3. اكتب المعادلات بشكل عادي (مثل: x² + 2x + 1 = 0).
+
+التفاضل:
+- مشتقة xⁿ = n·x^(n-1)
+- مشتقة sin(x) = cos(x)
+- مشتقة cos(x) = -sin(x)
+- مشتقة e^x = e^x
+- مشتقة ln(x) = 1/x
+- قاعدة الضرب: (uv)' = u'v + uv'
+- قاعدة القسمة: (u/v)' = (u'v - uv')/v²
+- قاعدة السلسلة: (f(g(x)))' = f'(g(x))·g'(x)
+
+التكامل:
+- تكامل xⁿ dx = x^(n+1)/(n+1) + C (لـ n ≠ -1)
+- تكامل 1/x dx = ln|x| + C
+- تكامل e^x dx = e^x + C
+- تكامل sin(x) dx = -cos(x) + C
+- تكامل cos(x) dx = sin(x) + C
+- التكامل بالتجزئة: ∫u dv = uv - ∫v du
+
+عندما يطلب المستخدم رسم دالة، اكتب:
+1. المعادلة.
+2. القمة والجذور.
+3. كود Python (matplotlib).
+4. رابط Desmos.
 
 """ + CURRICULUM,
     "code": "أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً واشرحه بجمل بسيطة.",
@@ -57,10 +80,10 @@ PROMPTS = {
 قواعد:
 1. اذكر الآية من القرآن بدقة.
 2. اذكر درجة الحديث ومصدره.
-3. اذكر آراء المذاهب في الخلافات الفقهية.
+3. اذكر آراء المذاهب في الخلافات.
 4. إذا لم تكن متأكداً، قل "الله أعلم".
 5. كن محترماً ومؤدباً.""",
-    "edit": "أنت Moka.AI، خبير في تحرير الصور والنصوص. عندما تُرفع لك صورة، صفها بدقة واقترح تعديلات احترافية لتحسينها (الإضاءة، الألوان، الخلفية، الحدود). عندما يُرفع لك نص، حسّنه وأعد كتابته بأسلوب أفضل.",
+    "edit": "أنت Moka.AI، خبير في تحرير الصور والنصوص. عندما تُرفع لك صورة، صفها بدقة واقترح تعديلات احترافية (إضاءة، ألوان، خلفية). عندما يُرفع لك نص، حسّنه وأعد كتابته بأسلوب أفضل.",
 }
 
 convs = {}
@@ -89,12 +112,10 @@ def ask_ai(msg, sid, mode):
             convs[key].append({"role": "assistant", "content": reply})
             return reply
         except urllib.error.HTTPError as e:
-            last_error = f"{e.code}"
-            continue
+            last_error = f"{e.code}"; continue
         except Exception as e:
-            last_error = str(e)
-            continue
-    return f"⚠️ فشل الاتصال. حاول مرة أخرى. ({last_error})"
+            last_error = str(e); continue
+    return f"⚠️ فشل الاتصال. ({last_error})"
 
 def summarize(text):
     for m in MODELS:
@@ -238,7 +259,8 @@ async function handleFile(input){
   reader.onload=async function(e){
     const base64=e.target.result.split(",")[1];
     const w=document.createElement("div");w.className="mw u";const m=document.createElement("div");m.className="m";
-    m.textContent="📎 "+file.name;const img=document.createElement("img");img.src=e.target.result;m.appendChild(img);
+    m.textContent="📎 "+file.name;
+    const img=document.createElement("img");img.src=e.target.result;m.appendChild(img);
     w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
     const ty=typ();
     try{
@@ -261,8 +283,7 @@ function downloadChat(){
   const name=localStorage.getItem("mu")||"مستخدم";
   let text="محادثة Moka.AI - "+name+"\\n"+new Date().toLocaleString("ar-DZ")+"\\n=============================\\n\\n";
   document.querySelectorAll("#ch .mw").forEach(m=>{
-    const isUser=m.classList.contains("u");
-    const content=m.querySelector(".m");
+    const isUser=m.classList.contains("u");const content=m.querySelector(".m");
     if(content){text+=(isUser?"👤 "+name:"🤖 Moka.AI")+":\\n"+content.textContent+"\\n\\n";}
   });
   const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
@@ -308,12 +329,7 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 {% if s.messages_log %}
 {% for m in s.messages_log[-50:]|reverse %}
 <div class="msg-item">
-<div class="meta">
-<span>👤 <b>{{m.name}}</b></span>
-<span>📱 {{m.ip}}</span>
-<span>🧠 {{m.mode}}</span>
-<span>🕐 {{m.time}}</span>
-</div>
+<div class="meta"><span>👤 <b>{{m.name}}</b></span><span>📱 {{m.ip}}</span><span>🧠 {{m.mode}}</span><span>🕐 {{m.time}}</span></div>
 <div class="text">💬 {{m.text}}</div>
 </div>
 {% endfor %}
@@ -324,10 +340,7 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <div class="box"><h2>🕐 آخر 20 زيارة</h2>
 {% for r in s.recent[-20:]|reverse %}
 <div class="row">
-<span>👤 {{r.name}}</span>
-<span style="color:#888">📱 {{r.device}}</span>
-<span style="color:#666">{{r.ip}}</span>
-<span style="color:#666">{{r.time}}</span>
+<span>👤 {{r.name}}</span><span style="color:#888">📱 {{r.device}}</span><span style="color:#666">{{r.ip}}</span><span style="color:#666">{{r.time}}</span>
 <a href="/block/{{r.ip}}?key={{key}}" class="block-btn">🚫</a>
 <a href="/unblock/{{r.ip}}?key={{key}}" class="unblock-btn">✅</a>
 </div>
@@ -336,10 +349,7 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <div class="box"><h2>📱 آخر 20 جهاز</h2>
 {% for d in s.devices[-20:]|reverse %}
 <div class="row">
-<span>📱 {{d.device}}</span>
-<span style="color:#888">🌐 {{d.browser}}</span>
-<span style="color:#666">{{d.ip}}</span>
-<span style="color:#666">{{d.time}}</span>
+<span>📱 {{d.device}}</span><span style="color:#888">🌐 {{d.browser}}</span><span style="color:#666">{{d.ip}}</span><span style="color:#666">{{d.time}}</span>
 <a href="/block/{{d.ip}}?key={{key}}" class="block-btn">🚫</a>
 <a href="/unblock/{{d.ip}}?key={{key}}" class="unblock-btn">✅</a>
 </div>
@@ -361,10 +371,8 @@ def sw():
 
 @app.route("/admin")
 def admin():
-    if request.args.get("key") != ADMIN_KEY:
-        return "🔒 ممنوع.", 403
-    s = load_stats()
-    return render_template_string(ADMIN_HTML, s=s, key=ADMIN_KEY)
+    if request.args.get("key") != ADMIN_KEY: return "🔒 ممنوع.", 403
+    return render_template_string(ADMIN_HTML, s=load_stats(), key=ADMIN_KEY)
 
 @app.route("/block/<ip>")
 def block_ip(ip):
@@ -382,8 +390,7 @@ def unblock_ip(ip):
 def track():
     try:
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
-        if ip in BLOCKED_IPS:
-            return jsonify({"ok": False, "blocked": True}), 403
+        if ip in BLOCKED_IPS: return jsonify({"ok": False, "blocked": True}), 403
         d = request.get_json(silent=True) or {}
         t = d.get("type", "")
         ua = request.headers.get("User-Agent", "?")
@@ -391,7 +398,7 @@ def track():
         device = "غير معروف"; browser = "غير معروف"
         if "Android" in ua: device = "Android"
         elif "iPhone" in ua or "iPad" in ua: device = "iPhone/iPad"
-        elif "Windows" in ua: device = "Windows
+        elif "Windows" in ua: device = "Windows"
         elif "Mac" in ua: device = "Mac"
         if "Chrome" in ua: browser = "Chrome"
         elif "Firefox" in ua: browser = "Firefox"
@@ -422,8 +429,7 @@ def track():
 def chat():
     try:
         ip = request.headers.get("X-Forwarded-For", request.remote_addr or "?").split(",")[0].strip()
-        if ip in BLOCKED_IPS:
-            return jsonify({"reply": "🚫 تم حظرك."}), 403
+        if ip in BLOCKED_IPS: return jsonify({"reply": "🚫 تم حظرك."}), 403
         d = request.get_json(silent=True) or {}
         return jsonify({"reply": ask_ai(d.get("message",""), d.get("session_id","default"), d.get("mode","general"))})
     except Exception as e: return jsonify({"reply":f"خطأ: {str(e)}"}),500
@@ -441,10 +447,8 @@ def analyze_image():
         d = request.get_json(silent=True) or {}
         img_b64 = d.get("image", "")
         prompt = d.get("prompt", "صف هذه الصورة")
-        if not img_b64:
-            return jsonify({"reply": "لم يتم استلام صورة."})
-        if not GROQ_API_KEY:
-            return jsonify({"reply": "⚠️ مفتاح API غير موجود."})
+        if not img_b64: return jsonify({"reply": "لم يتم استلام صورة."})
+        if not GROQ_API_KEY: return jsonify({"reply": "⚠️ مفتاح API غير موجود."})
         messages = [{"role": "user", "content": [
             {"type": "text", "text": prompt + "\n\nأجب بالعربية بوصف دقيق ومفيد."},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
@@ -458,8 +462,7 @@ def analyze_image():
             data = json.loads(r.read().decode())
         return jsonify({"reply": data["choices"][0]["message"]["content"]})
     except urllib.error.HTTPError as e:
-        err = e.read().decode()
-        return jsonify({"reply": f"⚠️ خطأ {e.code}: {err[:300]}"})
+        return jsonify({"reply": f"⚠️ خطأ {e.code}"})
     except Exception as e:
         return jsonify({"reply": f"⚠️ خطأ: {str(e)}"})
 
