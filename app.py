@@ -1,5 +1,5 @@
 # ============================================================
-# Moka.AI v7.0 - مساعد ذكي عربي
+# Moka.AI v8.0 - مساعد ذكي عربي
 # المطور: محمد كامل | تاريخ الإنشاء: 4 أكتوبر 2026
 # ============================================================
 
@@ -18,12 +18,27 @@ MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 ADMIN_KEY = "moka2026kamel"
 BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
+USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-USERS = {
-    "kamel": {"password": "moka2026", "role": "admin", "name": "محمد كامل"},
-    "user1": {"password": "pass1234", "role": "user", "name": "مستخدم 1"},
-    "user2": {"password": "pass5678", "role": "user", "name": "مستخدم 2"},
-}
+# ====== الحسابات ======
+def load_users():
+    """تحميل الحسابات من الملف"""
+    try:
+        with open(USERS_FILE, "r", encoding="utf-8") as f:
+            users = json.load(f)
+    except Exception:
+        users = {}
+    # حساب المدير ثابت
+    users["kamel"] = {"password": "moka2026", "role": "admin", "name": "محمد كامل"}
+    return users
+
+def save_users(users):
+    """حفظ الحسابات في الملف"""
+    try:
+        with open(USERS_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 def load_stats():
     try:
@@ -175,20 +190,22 @@ HTML = """<!doctype html>
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6}
 #login{position:fixed;inset:0;background:linear-gradient(135deg,#eef1ff 0%,#f7f8fc 50%,#f3e8ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto}
 #login.hide{display:none}
-.logo-big{width:130px;height:130px;margin-bottom:24px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 15px 35px rgba(91,124,250,.3))}
+.logo-big{width:120px;height:120px;margin-bottom:20px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 15px 35px rgba(91,124,250,.3))}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.lt{font-size:42px;font-weight:700;margin-bottom:8px;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.ls{color:var(--text-mute);margin-bottom:32px;font-size:15px}
-.lb{width:100%;max-width:400px;background:white;border:1px solid var(--border);border-radius:24px;padding:32px;box-shadow:0 20px 60px rgba(91,124,250,.12)}
+.lt{font-size:40px;font-weight:700;margin-bottom:8px;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.ls{color:var(--text-mute);margin-bottom:28px;font-size:14px}
+.lb{width:100%;max-width:400px;background:white;border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(91,124,250,.12)}
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
-.lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:16px;transition:all .2s;font-family:inherit}
+.lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;transition:all .2s;font-family:inherit}
 .lb input:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
-.pw-wrap{position:relative;margin-bottom:16px}
+.pw-wrap{position:relative;margin-bottom:14px}
 .pw-wrap input{margin-bottom:0;padding-left:48px}
-.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px;border-radius:8px;transition:background .2s}
+.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px;border-radius:8px}
 .pw-toggle:hover{background:var(--accent-soft)}
 .lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:transform .2s;font-family:inherit;box-shadow:0 6px 20px rgba(91,124,250,.3)}
 .lb button.main:active{transform:scale(.98)}
+.lb button.secondary{width:100%;padding:13px;border-radius:12px;border:1px solid var(--accent);background:white;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;font-family:inherit;transition:all .2s}
+.lb button.secondary:hover{background:var(--accent-soft)}
 .lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.7}
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
@@ -239,7 +256,7 @@ textarea:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px 
 textarea::placeholder{color:var(--text-mute)}
 button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(91,124,250,.3);transition:transform .2s}
 button.sd:active{transform:scale(.95)}
-button.sd:disabled{opacity:.4;cursor:not-allowed}
+button.sd:disabled{opacity:.4}
 button.copy-main{background:white;border:1px solid var(--border);color:var(--text-soft);box-shadow:none}
 button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:white;border-top:1px solid var(--border)}
@@ -270,7 +287,8 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()">👁️</button>
 </div>
 <button class="main" onclick="login()">🚀 تسجيل الدخول</button>
-<div class="hint">💡 حسابات متعددة متاحة<br>للتواصل: kamelmouhammed55@gmail.com</div>
+<button class="secondary" onclick="register()">✨ إنشاء حساب جديد</button>
+<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية</div>
 </div>
 </div>
 
@@ -361,9 +379,24 @@ async function login(){
     if(!d.ok){alert("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
     localStorage.setItem("mu",d.name);
+    localStorage.setItem("muser",u);
     localStorage.setItem("mrole",d.role);
     show(d.name,d.role);
     fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"login",name:d.name})});
+  }catch(e){alert("تعذر الاتصال بالخادم")}
+}
+async function register(){
+  const u=document.getElementById("un").value.trim();
+  const p=document.getElementById("pw").value.trim();
+  if(!u||!p){alert("املأ اسم المستخدم وكلمة المرور");return}
+  if(u.length<3){alert("اسم المستخدم يجب أن يكون 3 أحرف على الأقل");return}
+  if(p.length<4){alert("كلمة المرور يجب أن تكون 4 أحرف على الأقل");return}
+  if(u.toLowerCase()==="kamel"){alert("هذا الاسم محجوز");return}
+  try{
+    const r=await fetch("/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
+    const d=await r.json();
+    if(!d.ok){alert("❌ "+d.msg);return}
+    alert("✅ تم إنشاء الحساب بنجاح!\\nيمكنك الآن تسجيل الدخول.");
   }catch(e){alert("تعذر الاتصال بالخادم")}
 }
 function show(n,r){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");
@@ -404,7 +437,7 @@ function updateBranches(){
   const subjSel=document.getElementById("s_subject");
   if(level.includes("متوسط")){
     branchSel.innerHTML='<option value="جميع الشعب">جميع الشعب</option>';
-    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><op<option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="التربية المدنية">التربية المدنية</option>';
+    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="التربية المدنية">التربية المدنية</option>';
   } else if(level.includes("ثانوي")){
     branchSel.innerHTML='<option value="جذع مشترك آداب">جذع مشترك آداب</option><option value="جذع مشترك علوم">جذع مشترك علوم</option><option value="علوم تجريبية">علوم تجريبية</option><option value="رياضيات">رياضيات</option><option value="تقني رياضي">تقني رياضي</option><option value="تسيير واقتصاد">تسيير واقتصاد</option><option value="آداب وفلسفة">آداب وفلسفة</option><option value="لغات أجنبية">لغات أجنبية</option>';
     subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="الفلسفة">الفلسفة</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="العلوم الإسلامية">العلوم الإسلامية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option>';
@@ -468,6 +501,12 @@ h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#5b7cfa
 <div class="card"><div class="num">{{s.logins}}</div><div class="lbl">🔑 تسجيلات</div></div>
 <div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 رسائل</div></div>
 <div class="card"><div class="num">{{s.summaries}}</div><div class="lbl">📝 تلخيص</div></div>
+<div class="card"><div class="num">{{users_count}}</div><div class="lbl">👥 حسابات</div></div>
+</div>
+<div class="box"><h2>👥 قائمة الحسابات</h2>
+{% for u, info in users.items() %}
+<div class="row"><span>👤 <b>{{info.name}}</b> ({{u}})</span><span style="color:#8b91a8">{{info.role}}</span></div>
+{% endfor %}
 </div>
 <div class="box"><h2>📈 استخدام النماذج</h2>
 <div class="mode-bar"><span>🧠 عامة</span><b>{{s.modes.general}}</b></div>
@@ -502,7 +541,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const CACHE='moka-v7';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const CACHE='moka-v8';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -510,16 +549,41 @@ def do_login():
         d = request.get_json(silent=True) or {}
         u = d.get("username", "").strip()
         p = d.get("password", "").strip()
-        if u in USERS and USERS[u]["password"] == p:
-            return jsonify({"ok": True, "name": USERS[u]["name"], "role": USERS[u]["role"]})
+        users = load_users()
+        if u in users and users[u]["password"] == p:
+            return jsonify({"ok": True, "name": users[u]["name"], "role": users[u]["role"]})
         return jsonify({"ok": False, "msg": "اسم المستخدم أو كلمة المرور غير صحيحة"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
+
+@app.post("/register")
+def do_register():
+    try:
+        d = request.get_json(silent=True) or {}
+        u = d.get("username", "").strip().lower()
+        p = d.get("password", "").strip()
+        if not u or not p:
+            return jsonify({"ok": False, "msg": "املأ جميع الحقول"})
+        if len(u) < 3:
+            return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً (3 أحرف على الأقل)"})
+        if len(p) < 4:
+            return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً (4 أحرف على الأقل)"})
+        if u == "kamel":
+            return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
+        users = load_users()
+        if u in users:
+            return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً"})
+        users[u] = {"password": p, "role": "user", "name": u}
+        save_users(users)
+        return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
 @app.route("/admin")
 def admin():
     if request.args.get("key") != ADMIN_KEY: return "🔒 ممنوع.", 403
-    return render_template_string(ADMIN_HTML, s=load_stats(), key=ADMIN_KEY)
+    users = load_users()
+    return render_template_string(ADMIN_HTML, s=load_stats(), key=ADMIN_KEY, users=users, users_count=len(users))
 
 @app.route("/block/<ip>")
 def block_ip(ip):
