@@ -1,5 +1,5 @@
 # ============================================================
-# Moka.AI v8.0 - مساعد ذكي عربي
+# Moka.AI v9.0 - مساعد ذكي عربي
 # المطور: محمد كامل | تاريخ الإنشاء: 4 أكتوبر 2026
 # ============================================================
 
@@ -20,20 +20,16 @@ BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
-# ====== الحسابات ======
 def load_users():
-    """تحميل الحسابات من الملف"""
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
             users = json.load(f)
     except Exception:
         users = {}
-    # حساب المدير ثابت
     users["kamel"] = {"password": "moka2026", "role": "admin", "name": "محمد كامل"}
     return users
 
 def save_users(users):
-    """حفظ الحسابات في الملف"""
     try:
         with open(USERS_FILE, "w", encoding="utf-8") as f:
             json.dump(users, f, ensure_ascii=False, indent=2)
@@ -100,15 +96,36 @@ def search_web(query):
 
 DATE_CONTEXT = get_date_context()
 
+# قاعدة صارمة: منع LaTeX
+NO_LATEX_RULE = """
+قواعد أساسية صارمة (مهم جداً):
+1. اكتب كل شيء بالعربية الفصحى المبسطة.
+2. ممنوع منعاً باتاً استخدام رموز LaTeX مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle، \\، \\{، \\}، \\(، \\)، \\[، \\].
+3. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3" أو "√9 = 3".
+4. اكتب الكسور هكذا: "3 على 4" أو "3/4".
+5. اكتب الأسس هكذا: "2 أس 3" أو "2³".
+6. اشرح خطوة بخطوة بلغة عربية عادية، مثل شرح معلم لتلميذه.
+7. استخدم الرموز البسيطة فقط: + - × ÷ = √ ² ³.
+8. لا تكتب أي كود LaTeX أبداً.
+9. نظّم إجابتك بعناوين ونقاط واضحة.
+"""
+
 PROMPTS = {
-    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية الفصحى المبسطة.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}",
-    "math": f"أنت Moka.AI، خبير رياضيات (جبر، هندسة، تفاضل، تكامل). اشرح خطوة بخطوة.\n\n{DATE_CONTEXT}",
-    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً.\n\n{DATE_CONTEXT}",
-    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة.\n\n{DATE_CONTEXT}",
-    "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}",
+    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
+    "math": f"""أنت Moka.AI، خبير رياضيات.
+مهمتك: حل المسائل الرياضية خطوة بخطوة، بشرح عربي بسيط.
+مثال: إذا سُئلت عن الجذر التربيعي لـ 9، أجب:
+"الجذر التربيعي للعدد 9 يساوي 3، لأن 3 × 3 = 9."
+
+{DATE_CONTEXT}
+
+{NO_LATEX_RULE}""",
+    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً واشرحه بجمل بسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
+    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
+    "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس مفصلة.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
 }
 
-ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه منك بدون قيود."
+ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه منك."
 
 convs = {}
 
@@ -140,6 +157,10 @@ def ask_ai(msg, sid, mode, is_admin=False):
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode())
             reply = data["choices"][0]["message"]["content"]
+            # تنظيف أي LaTeX متبقٍ
+            reply = reply.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
+            reply = reply.replace("\\sqrt", "√").replace("\\frac", "").replace("\\quad", " ")
+            reply = reply.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
             convs[key].append({"role": "assistant", "content": reply})
             return reply
         except urllib.error.HTTPError as e:
@@ -153,7 +174,7 @@ def summarize(text):
         try:
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
-                    {"role": "system", "content": "لخص النص في نقاط واضحة بالعربية."},
+                    {"role": "system", "content": "لخص النص في نقاط واضحة بالعربية. " + NO_LATEX_RULE},
                     {"role": "user", "content": text}], "temperature": 0.5, "max_tokens": 2000}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
@@ -201,15 +222,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-s
 .pw-wrap{position:relative;margin-bottom:14px}
 .pw-wrap input{margin-bottom:0;padding-left:48px}
 .pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px;border-radius:8px}
-.pw-toggle:hover{background:var(--accent-soft)}
-.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:transform .2s;font-family:inherit;box-shadow:0 6px 20px rgba(91,124,250,.3)}
-.lb button.main:active{transform:scale(.98)}
-.lb button.secondary{width:100%;padding:13px;border-radius:12px;border:1px solid var(--accent);background:white;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;font-family:inherit;transition:all .2s}
-.lb button.secondary:hover{background:var(--accent-soft)}
+.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 6px 20px rgba(91,124,250,.3)}
+.lb button.secondary{width:100%;padding:13px;border-radius:12px;border:1px solid var(--accent);background:white;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;font-family:inherit}
 .lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.7}
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
-.ov{display:none;position:fixed;inset:0;background:rgba(26,31,54,.4);z-index:998;backdrop-filter:blur(2px)}
+.ov{display:none;position:fixed;inset:0;background:rgba(26,31,54,.4);z-index:998}
 .ov.on{display:block}
 .sb{position:fixed;top:0;right:-320px;width:300px;height:100%;background:var(--sidebar);border-left:1px solid var(--border);z-index:999;transition:right .3s;padding:24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;box-shadow:-10px 0 40px rgba(91,124,250,.08)}
 .sb.on{right:0}
@@ -217,7 +235,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-s
 .avatar{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,#5b7cfa,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;color:white;margin:0 auto 12px;box-shadow:0 10px 30px rgba(91,124,250,.3)}
 .username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px}
 .role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px}
-.mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;transition:all .2s;font-family:inherit;font-weight:500}
+.mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:500}
 .mb:hover{background:var(--accent-soft);color:var(--accent)}
 .mb.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
 .lo{margin-top:auto;padding:13px;border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600}
@@ -254,23 +272,20 @@ h1{font-size:20px;font-weight:700;background:linear-gradient(90deg,#5b7cfa,#a78b
 textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5}
 textarea:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
 textarea::placeholder{color:var(--text-mute)}
-button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(91,124,250,.3);transition:transform .2s}
-button.sd:active{transform:scale(.95)}
+button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(91,124,250,.3)}
 button.sd:disabled{opacity:.4}
 button.copy-main{background:white;border:1px solid var(--border);color:var(--text-soft);box-shadow:none}
-button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:white;border-top:1px solid var(--border)}
-.mo{display:none;position:fixed;inset:0;background:rgba(26,31,54,.5);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto;backdrop-filter:blur(4px)}
+.mo{display:none;position:fixed;inset:0;background:rgba(26,31,54,.5);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto}
 .mo.on{display:flex}
 .md{background:white;border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(91,124,250,.2)}
 .md h2{font-size:20px;font-weight:700;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:600}
 .md select,.md input,.md textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit}
-.md select:focus,.md input:focus,.md textarea:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
 .md textarea{resize:vertical;min-height:180px;line-height:1.7}
 .mbtns{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
 .mbtns button{padding:13px 24px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
-.mbtns .p{background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;box-shadow:0 6px 20px rgba(91,124,250,.3)}
+.mbtns .p{background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white}
 .mbtns .s{background:var(--input);color:var(--text-soft);border:1px solid var(--border)}
 </style></head><body>
 
@@ -376,7 +391,8 @@ async function login(){
   try{
     const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
-    if(!d.ok){alert("❌ "+d.msg);return}
+    if(!d.ok){alert
+("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
     localStorage.setItem("mu",d.name);
     localStorage.setItem("muser",u);
@@ -541,7 +557,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const CACHE='moka-v8';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const CACHE='moka-v9';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -562,17 +578,12 @@ def do_register():
         d = request.get_json(silent=True) or {}
         u = d.get("username", "").strip().lower()
         p = d.get("password", "").strip()
-        if not u or not p:
-            return jsonify({"ok": False, "msg": "املأ جميع الحقول"})
-        if len(u) < 3:
-            return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً (3 أحرف على الأقل)"})
-        if len(p) < 4:
-            return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً (4 أحرف على الأقل)"})
-        if u == "kamel":
-            return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
+        if not u or not p: return jsonify({"ok": False, "msg": "املأ جميع الحقول"})
+        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً"})
+        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً"})
+        if u == "kamel": return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
         users = load_users()
-        if u in users:
-            return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً"})
+        if u in users: return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً"})
         users[u] = {"password": p, "role": "user", "name": u}
         save_users(users)
         return jsonify({"ok": True})
