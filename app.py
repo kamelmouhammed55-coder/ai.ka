@@ -13,7 +13,6 @@ MODELS = [
     "qwen/qwen3.6-27b",
 ]
 
-# ====== التعليمات الشخصية ======
 SYSTEM_PROMPT = """أنت Moka.AI، مساعد ذكي عربي متطور.
 صانعك ومطورك هو "محمد كامل".
 لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
@@ -54,7 +53,6 @@ def ask_ai(user_message, session_id="default", custom_prompt=None):
             "temperature": 0.7,
             "max_tokens": 2048,
         }
-
         try:
             req = urllib.request.Request(
                 GROQ_URL,
@@ -71,26 +69,19 @@ def ask_ai(user_message, session_id="default", custom_prompt=None):
             reply = data["choices"][0]["message"]["content"]
             conversations[session_id].append({"role": "assistant", "content": reply})
             return reply
-        except urllib.error.HTTPError as e:
-            last_error = f"خطأ {e.code} في {model_name}"
-            continue
         except Exception as e:
             last_error = str(e)
             continue
-
     return f"⚠️ فشلت جميع النماذج: {last_error}"
 
 
 def summarize_text(text):
-    """تلخيص نص معين"""
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود."
-    
     messages = [
         {"role": "system", "content": "أنت مساعد متخصص في تلخيص الدروس. لخص النص التالي في نقاط واضحة ومفيدة بالعربية."},
         {"role": "user", "content": f"لخص هذا الدرس:\n\n{text}"}
     ]
-    
     for model_name in MODELS:
         payload = {
             "model": model_name,
@@ -138,6 +129,62 @@ HTML = r"""
     height: 100vh; overflow: hidden;
     display: flex; flex-direction: column;
   }
+
+  /* ====== شاشة تسجيل الدخول ====== */
+  #loginScreen {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 999; padding: 20px;
+  }
+  #loginScreen.hidden { display: none; }
+  .login-logo {
+    width: 100px; height: 100px; margin-bottom: 20px;
+  }
+  .login-title {
+    font-size: 32px; font-weight: bold; margin-bottom: 8px;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .login-subtitle {
+    font-size: 14px; color: #888; margin-bottom: 30px;
+  }
+  .login-box {
+    width: 100%; max-width: 360px;
+    background: #1a1a1a; border: 1px solid #333;
+    border-radius: 20px; padding: 24px;
+  }
+  .login-box label {
+    display: block; font-size: 13px; color: #aaa;
+    margin-bottom: 8px;
+  }
+  .login-box input {
+    width: 100%; padding: 14px 18px;
+    border-radius: 12px; border: 1px solid #333;
+    background: #0d0d0d; color: #ececec;
+    font-size: 16px; outline: none;
+    margin-bottom: 16px;
+  }
+  .login-box input:focus { border-color: var(--accent); }
+  .login-btn {
+    width: 100%; padding: 14px;
+    border-radius: 12px; border: none;
+    background: linear-gradient(90deg, var(--accent), #7c3aed);
+    color: white; font-size: 16px; font-weight: bold;
+    cursor: pointer;
+  }
+  .login-btn:active { transform: scale(0.98); }
+  .login-footer {
+    text-align: center; margin-top: 20px;
+    font-size: 12px; color: #555;
+  }
+
+  /* ====== التطبيق ====== */
+  #appScreen { display: none; height: 100vh; flex-direction: column; }
+  #appScreen.active { display: flex; }
+
   .header {
     padding: 14px 16px; text-align: center;
     border-bottom: 1px solid var(--border);
@@ -145,13 +192,7 @@ HTML = r"""
     display: flex; align-items: center; justify-content: space-between;
   }
   .title-group { display: flex; align-items: center; gap: 10px; margin: 0 auto; }
-  .logo {
-    width: 32px; height: 32px;
-    background: linear-gradient(135deg, var(--accent), #7c3aed);
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-  }
+  .header-logo { width: 32px; height: 32px; }
   h1 {
     font-size: 18px; font-weight: 600;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
@@ -164,6 +205,7 @@ HTML = r"""
     cursor: pointer; font-size: 12px;
   }
   .header-btn:hover { background: #222; }
+
   #chat {
     flex: 1; overflow-y: auto; padding: 24px 16px;
     display: flex; flex-direction: column; gap: 18px;
@@ -235,7 +277,6 @@ HTML = r"""
     color: #666; border-top: 1px solid var(--border);
     background: var(--sidebar);
   }
-  /* Modal */
   .modal-overlay {
     display: none; position: fixed; top: 0; left: 0;
     width: 100%; height: 100%; background: rgba(0,0,0,0.7);
@@ -266,30 +307,65 @@ HTML = r"""
 </style>
 </head>
 <body>
-<div class="header">
-  <div class="header-btns">
-    <button class="header-btn" onclick="clearChat()">🗑️</button>
-    <button class="header-btn" onclick="openSummary()">📝 تلخيص</button>
+
+<!-- ====== شاشة تسجيل الدخول ====== -->
+<div id="loginScreen">
+  <svg class="login-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="gradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" style="stop-color:#10a37f;stop-opacity:1" />
+        <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+      </linearGradient>
+    </defs>
+    <polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#gradLogin)" />
+    <text x="50" y="65" font-family="Arial, sans-serif" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text>
+  </svg>
+  <div class="login-title">Moka.AI</div>
+  <div class="login-subtitle">مساعدك الذكي من تطوير محمد كامل</div>
+  <div class="login-box">
+    <label>👤 اسمك</label>
+    <input id="usernameInput" autocomplete="off" placeholder="اكتب اسمك هنا...">
+    <button class="login-btn" onclick="login()">🚀 دخول</button>
   </div>
-  <div class="title-group">
-    <div class="logo">🤖</div>
-    <h1>Moka.AI</h1>
-  </div>
-  <div style="width: 90px;"></div>
+  <div class="login-footer">Moka.AI © 2026</div>
 </div>
-<div id="chat">
-  <div class="msg-wrapper bot">
-    <div class="msg">👋 مرحباً <b>محمد كامل</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء، أو اضغط <b>📝 تلخيص</b> لتلخيص أي درس.</div>
+
+<!-- ====== التطبيق ====== -->
+<div id="appScreen">
+  <div class="header">
+    <div class="header-btns">
+      <button class="header-btn" onclick="clearChat()">🗑️</button>
+      <button class="header-btn" onclick="openSummary()">📝 تلخيص</button>
+    </div>
+    <div class="title-group">
+      <svg class="header-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradHeader" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#10a37f;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#gradHeader)" />
+        <text x="50" y="65" font-family="Arial, sans-serif" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text>
+      </svg>
+      <h1>Moka.AI</h1>
+    </div>
+    <div style="width: 90px;"></div>
   </div>
-</div>
-<form class="input-area" id="form">
-  <div class="input-wrapper">
-    <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
+  <div id="chat">
+    <div class="msg-wrapper bot">
+      <div class="msg" id="welcomeMsg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي.</div>
+    </div>
   </div>
-  <button type="submit" class="send" id="sendBtn">➤</button>
-</form>
-<div class="visitor-counter" id="counter">
-  👁️ عدد الزوار: <span id="visitCount">...</span>
+  <form class="input-area" id="form">
+    <div class="input-wrapper">
+      <input id="input" autocomplete="off" placeholder="اسأل Moka.AI أي شيء...">
+    </div>
+    <button type="submit" class="send" id="sendBtn">➤</button>
+  </form>
+  <div class="visitor-counter" id="counter">
+    👁️ عدد الزوار: <span id="visitCount">...</span>
+  </div>
 </div>
 
 <!-- نافذة التلخيص -->
@@ -306,6 +382,30 @@ HTML = r"""
 </div>
 
 <script>
+  // ====== تسجيل الدخول ======
+  const loginScreen = document.getElementById("loginScreen");
+  const appScreen = document.getElementById("appScreen");
+  const usernameInput = document.getElementById("usernameInput");
+
+  function login() {
+    const name = usernameInput.value.trim();
+    if (!name) { alert("الرجاء كتابة اسمك"); return; }
+    localStorage.setItem("moka_user", name);
+    loginScreen.classList.add("hidden");
+    appScreen.classList.add("active");
+    document.getElementById("welcomeMsg").innerHTML = 
+      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء، أو اضغط <b>📝 تلخيص</b> لتلخيص أي درس.";
+  }
+
+  // التحقق من وجود مستخدم محفوظ
+  window.addEventListener("load", () => {
+    const saved = localStorage.getItem("moka_user");
+    if (saved) {
+      usernameInput.value = saved;
+      login();
+    }
+  });
+
   // ====== عدّاد الزوار ======
   let count = localStorage.getItem('moka_visits');
   if (!count) { count = 1; } else { count = parseInt(count) + 1; }
@@ -357,7 +457,6 @@ HTML = r"""
     chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة.</div></div>';
   }
 
-  // ====== التلخيص ======
   function openSummary() {
     document.getElementById("summaryModal").classList.add("active");
     document.getElementById("summaryText").focus();
@@ -387,7 +486,6 @@ HTML = r"""
     }
   }
 
-  // ====== الشات ======
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
