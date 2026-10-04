@@ -1,5 +1,5 @@
 # ============================================================
-# Moka.AI v9.0 - مساعد ذكي عربي
+# Moka.AI v10.0 - مساعد ذكي عربي
 # المطور: محمد كامل | تاريخ الإنشاء: 4 أكتوبر 2026
 # ============================================================
 
@@ -26,6 +26,7 @@ def load_users():
             users = json.load(f)
     except Exception:
         users = {}
+    # حساب المدير ثابت
     users["kamel"] = {"password": "moka2026", "role": "admin", "name": "محمد كامل"}
     return users
 
@@ -96,36 +97,25 @@ def search_web(query):
 
 DATE_CONTEXT = get_date_context()
 
-# قاعدة صارمة: منع LaTeX
 NO_LATEX_RULE = """
-قواعد أساسية صارمة (مهم جداً):
-1. اكتب كل شيء بالعربية الفصحى المبسطة.
-2. ممنوع منعاً باتاً استخدام رموز LaTeX مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle، \\، \\{، \\}، \\(، \\)، \\[، \\].
-3. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3" أو "√9 = 3".
-4. اكتب الكسور هكذا: "3 على 4" أو "3/4".
-5. اكتب الأسس هكذا: "2 أس 3" أو "2³".
-6. اشرح خطوة بخطوة بلغة عربية عادية، مثل شرح معلم لتلميذه.
-7. استخدم الرموز البسيطة فقط: + - × ÷ = √ ² ³.
-8. لا تكتب أي كود LaTeX أبداً.
-9. نظّم إجابتك بعناوين ونقاط واضحة.
+قواعد أساسية صارمة:
+1. اكتب بالعربية الفصحى المبسطة.
+2. ممنوع استخدام رموز LaTeX مثل \\sqrt، \\frac، \\quad، \\text، \\displaystyle.
+3. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3".
+4. اكتب الكسور هكذا: "3 على 4".
+5. استخدم الرموز البسيطة فقط: + - × ÷ = √ ² ³.
+6. نظّم إجابتك بعناوين ونقاط.
 """
 
 PROMPTS = {
     "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
-    "math": f"""أنت Moka.AI، خبير رياضيات.
-مهمتك: حل المسائل الرياضية خطوة بخطوة، بشرح عربي بسيط.
-مثال: إذا سُئلت عن الجذر التربيعي لـ 9، أجب:
-"الجذر التربيعي للعدد 9 يساوي 3، لأن 3 × 3 = 9."
-
-{DATE_CONTEXT}
-
-{NO_LATEX_RULE}""",
+    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة عربية بسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
     "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً واشرحه بجمل بسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
     "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
     "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس مفصلة.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
 }
 
-ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه منك."
+ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه."
 
 convs = {}
 
@@ -157,7 +147,6 @@ def ask_ai(msg, sid, mode, is_admin=False):
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode())
             reply = data["choices"][0]["message"]["content"]
-            # تنظيف أي LaTeX متبقٍ
             reply = reply.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
             reply = reply.replace("\\sqrt", "√").replace("\\frac", "").replace("\\quad", " ")
             reply = reply.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
@@ -303,7 +292,7 @@ button.copy-main{background:white;border:1px solid var(--border);color:var(--tex
 </div>
 <button class="main" onclick="login()">🚀 تسجيل الدخول</button>
 <button class="secondary" onclick="register()">✨ إنشاء حساب جديد</button>
-<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية</div>
+<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية تامة</div>
 </div>
 </div>
 
@@ -391,8 +380,7 @@ async function login(){
   try{
     const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
-    if(!d.ok){alert
-("❌ "+d.msg);return}
+    if(!d.ok){alert("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
     localStorage.setItem("mu",d.name);
     localStorage.setItem("muser",u);
@@ -557,13 +545,13 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const CACHE='moka-v9';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const CACHE='moka-v10';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
     try:
         d = request.get_json(silent=True) or {}
-        u = d.get("username", "").strip()
+        u = d.get("username", "").strip().lower()
         p = d.get("password", "").strip()
         users = load_users()
         if u in users and users[u]["password"] == p:
@@ -579,11 +567,11 @@ def do_register():
         u = d.get("username", "").strip().lower()
         p = d.get("password", "").strip()
         if not u or not p: return jsonify({"ok": False, "msg": "املأ جميع الحقول"})
-        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً"})
-        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً"})
+        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً (3 أحرف على الأقل)"})
+        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً (4 أحرف على الأقل)"})
         if u == "kamel": return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
         users = load_users()
-        if u in users: return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً"})
+        if u in users: return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً، اختر اسماً آخر"})
         users[u] = {"password": p, "role": "user", "name": u}
         save_users(users)
         return jsonify({"ok": True})
