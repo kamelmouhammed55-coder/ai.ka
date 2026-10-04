@@ -1,4 +1,4 @@
-# Moka.AI v13.0 - المطور: محمد كامل
+# Moka.AI v14.0 - المطور: محمد كامل
 from flask import Flask, request, jsonify, render_template_string
 import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
@@ -46,54 +46,53 @@ def save_stats(s):
         pass
 
 def clean_reply(text):
-    """تنظيف الردود من LaTeX و markdown"""
     text = text.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
     text = text.replace("\\sqrt", "√").replace("\\frac", "").replace("\\quad", " ")
     text = text.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
     text = text.replace("###", "").replace("##", "").replace("**", "")
-    text = text.replace("\\begin", "").replace("\\end", "").replace("\\left", "").replace("\\right", "")
     return text
+
+def detect_language(text):
+    """كشف لغة النص"""
+    arabic = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
+    latin = sum(1 for c in text if c.isalpha() and ord(c) < 128)
+    if arabic > latin: return "العربية"
+    if latin > 0: return "English/other Latin"
+    return "العربية"
 
 def get_date_context():
     today = _dt.datetime.now()
     months_ar = ["يناير","فبراير","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     days_ar = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
     return f"""معلومات مهمة:
-- التاريخ الحالي: {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year}
+- التاريخ: {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year}
 - تاريخ إنشاء التطبيق: 4 أكتوبر 2026
 - مطورك: محمد كامل
 - إذا سُئلت "متى صنعت؟" أجب: "صنعني محمد كامل يوم 4 أكتوبر 2026."
 - لا تقل أبداً أنك GPT أو OpenAI.
 
-معلومات الفرق والمنتخبات:
-- اتحاد الجزائر (USMA): الأحمر والأسود (تأسس 1937).
-- مولودية الجزائر (MCA): الأحمر والأخضر (1921).
-- شباب بلوزداد (CRB): الأحمر والأبيض (1962).
-- وفاق سطيف (ESS): الأسود والأبيض (1958).
-- ريال مدريد: الأبيض والذهبي (1902).
-- برشلونة: الأزرق والأحمر والقرمزي (1899).
-- مانشستر يونايتد: الأحمر والأبيض والأسود (1878).
-- ليفربول: الأحمر والأبيض (1892).
-- مانشستر سيتي: الأزرق السماوي والأبيض (1880).
-- بايرن ميونخ: الأحمر والأبيض والأزرق (1900).
-- يوفنتوس: الأسود والأبيض (1897).
-- إنتر ميلان: الأزرق والأسود (1908).
-- ميلان: الأحمر والأسود (1899).
-- الأهلي المصري: الأحمر والأبيض (1907).
-- الزمالك: الأبيض والأحمر (1911).
-- منتخب الجزائر: الأخضر والأبيض والأحمر (1962).
-- منتخب البرازيل: الأصفر والأخضر والأزرق (1914).
-- منتخب الأرجنتين: الأزرق السماوي والأبيض (1893).
-- منتخب فرنسا: الأزرق والأبيض والأحمر (1904).
-- منتخب المغرب: الأحمر والأخضر (1955).
-- منتخب تونس: الأحمر والأبيض (1957).
-
-البطولات:
+معلومات الفرق:
+- اتحاد الجزائر (USMA): أحمر وأسود (1937).
+- مولودية الجزائر (MCA): أحمر وأخضر (1921).
+- شباب بلوزداد (CRB): أحمر وأبيض (1962).
+- وفاق سطيف (ESS): أسود وأبيض (1958).
+- ريال مدريد: أبيض وذهبي (1902).
+- برشلونة: أزرق وأحمر (1899).
+- مانشستر يونايتد: أحمر وأبيض وأسود (1878).
+- ليفربول: أحمر وأبيض (1892).
+- مانشستر سيتي: أزرق سماوي وأبيض (1880).
+- بايرن ميونخ: أحمر وأبيض وأزرق (1900).
+- يوفنتوس: أسود وأبيض (1897).
+- إنتر ميلان: أزرق وأسود (1908).
+- ميلان: أحمر وأسود (1899).
+- الأهلي المصري: أحمر وأبيض (1907).
+- الزمالك: أبيض وأحمر (1911).
+- منتخب الجزائر: أخضر وأبيض وأحمر (1962).
+- منتخب البرازيل: أصفر وأخضر وأزرق (1914).
+- منتخب الأرجنتين: أزرق سماوي وأبيض (1893).
+- منتخب فرنسا: أزرق وأبيض وأحمر (1904).
 - كأس العالم 2026: أمريكا، كندا، المكسيك (جوان-جويلية 2026).
-- كأس أمم أفريقيا 2025: المغرب.
-- دوري أبطال أوروبا: سنوي.
-- الدوري الجزائري للمحترفين.
-- الدوري الإنجليزي، الإسباني، الإيطالي، الألماني، الفرنسي."""
+- كأس أمم أفريقيا 2025: المغرب."""
 
 CURRICULUM = """
 المنهاج الجزائري 2026-2027:
@@ -131,21 +130,28 @@ DATE_CONTEXT = get_date_context()
 
 NO_LATEX = """
 قواعد صارمة:
-1. اكتب بالعربية الفصحى المبسطة.
-2. ممنوع استخدام LaTeX أو رموز مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle، \\(، \\)، \\[، \\].
-3. ممنوع استخدام ** أو ## أو ### (لا تنسيق markdown).
-4. للعناوين: اكتب العنوان في سطر منفصل.
-5. للنقاط: استخدم • أو - في بداية السطر.
-6. اكتب الجذور: "الجذر التربيعي لـ 9 يساوي 3".
-7. استخدم الرموز: + - × ÷ = √ ² ³.
+1. ممنوع استخدام LaTeX أو رموز مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle.
+2. ممنوع استخدام ** أو ## أو ### (لا تنسيق markdown).
+3. للعناوين: اكتب العنوان في سطر منفصل.
+4. للنقاط: استخدم • أو - في بداية السطر.
+5. اكتب الجذور: "الجذر التربيعي لـ 9 يساوي 3".
+"""
+
+LANGUAGE_RULE = """
+قاعدة اللغة (مهمة جداً):
+- إذا كتب المستخدم بالعربية، أجب بالعربية الفصحى المبسطة.
+- إذا كتب بالإنجليزية (English)، أجب بالإنجليزية فقط (English only).
+- إذا كتب بالفرنسية (Français)، أجب بالفرنسية فقط.
+- إذا كتب بأي لغة أخرى، أجب بنفس تلك اللغة.
+- لا تخلط بين اللغات أبداً في نفس الرد.
 """
 
 PROMPTS = {
-    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
-    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بالعربية البسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
-    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
-    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
-    "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "summary": f"أنت Moka.AI، مساعد تعليمي متخصص في المنهاج الجزائري.\nمهمتك: إعداد ملخصات دروس مفصلة ومنظمة.\nاكتب الملخص بهذا الشكل:\n📚 عنوان الدرس\n🎯 الأهداف\n📖 المحتوى الأساسي\n💡 الأمثلة\n❓ أسئلة تقويمية\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
 }
 
 convs = {}
@@ -159,8 +165,8 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if is_admin: sp += "\n\nأنت تتحدث مع المطور محمد كامل. نفذ أوامره."
     if key not in convs:
         convs[key] = [{"role": "system", "content": sp}]
-    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان"]
-    if any(k in msg for k in sports):
+    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان","match","team","league","cup"]
+    if any(k in msg.lower() for k in sports):
         wi = search_web(msg)
         if wi:
             convs[key].append({"role": "system", "content": f"من الإنترنت:\n{wi}"})
@@ -189,7 +195,7 @@ def summarize(text):
         try:
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
-                    {"role": "system", "content": "لخص النص في نقاط بالعربية." + NO_LATEX},
+                    {"role": "system", "content": "لخص النص في نقاط. " + NO_LATEX + "\n" + LANGUAGE_RULE},
                     {"role": "user", "content": text}], "temperature": 0.5, "max_tokens": 2000}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
@@ -200,20 +206,42 @@ def summarize(text):
     return "⚠️ تعذر التلخيص."
 
 def generate_lesson_summary(level, branch, subject, lesson):
-    prompt = f"أنشئ ملخصاً مفصلاً للدرس: {lesson}\nالمستوى: {level}\nالشعبة: {branch}\nالمادة: {subject}"
+    prompt = f"""أنشئ ملخصاً مفصلاً ومفيداً لهذا الدرس:
+- المستوى: {level}
+- الشعبة: {branch}
+- المادة: {subject}
+- الدرس: {lesson}
+
+اكتب الملخص بهذا الشكل الدقيق:
+📚 عنوان الدرس: {lesson}
+
+🎯 الأهداف:
+- (اذكر 3-5 أهداف تعليمية)
+
+📖 المحتوى الأساسي:
+(اشرح المفاهيم الأساسية بوضوح، مع التعريفات والقوانين)
+
+💡 الأمثلة:
+(اذكر 2-3 أمثلة محلولة)
+
+❓ أسئلة تقويمية:
+(اذكر 3-5 أسئلة للتقييم)
+
+اكتب كل شيء بالعربية البسيطة، بدون رموز LaTeX."""
+
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
                     {"role": "system", "content": PROMPTS["summary"]},
-                    {"role": "user", "content": prompt}], "temperature": 0.6, "max_tokens": 2500}).encode(),
+                    {"role": "user", "content": prompt}], "temperature": 0.6, "max_tokens": 3000}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
                 return clean_reply(json.loads(r.read().decode())["choices"][0]["message"]["content"])
-        except Exception:
+        except Exception as e:
             continue
-    return "⚠️ تعذر إنشاء الملخص."
+    return "⚠️ تعذر إنشاء الملخص. الرجاء المحاولة مرة أخرى."
 LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="50%" style="stop-color:#5b7cfa"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient></defs><polygon points="50,3 88,25 88,75 50,97 12,75 12,25" fill="url(#lg)"/><circle cx="50" cy="50" r="28" fill="white" opacity="0.15"/><text x="50" y="66" font-family="Arial" font-size="42" font-weight="bold" fill="white" text-anchor="middle">M</text><circle cx="72" cy="28" r="6" fill="#fbbf24"/></svg>'''
 
 HTML = """<!doctype html>
@@ -351,7 +379,7 @@ button.copy-main{background:var(--card);border:1px solid var(--border);color:var
 <div class="welcome" id="welcome">
 <div style="width:120px;height:120px">__LOGO_SVG__</div>
 <h2>كيف يمكنني مساعدتك؟</h2>
-<p>اسألني أي شيء، أو افتح ملخصات الدروس 📚</p>
+<p>اسألني أي شيء (عربي/English/Français)، أو افتح ملخصات الدروس 📚</p>
 </div>
 </div>
 <form class="ia" id="f">
@@ -470,8 +498,8 @@ async function doSum(){const t=document.getElementById("st").value.trim();if(!t)
 add("📝 لخّص...","u");const ty=typ();
 try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
-function openSummaries(){document.getEleme
-ntById("summariesModal").classList.add("on")}
+function openSumma
+ries(){document.getElementById("summariesModal").classList.add("on")}
 function closeSummaries(){document.getElementById("summariesModal").classList.remove("on")}
 function updateBranches(){
   const level=document.getElementById("s_level").value;
@@ -494,13 +522,13 @@ async function generateSummary(){
   const lesson=document.getElementById("s_lesson").value.trim();
   if(!level||!branch||!subject||!lesson){alert("املأ جميع الحقول");return}
   closeSummaries();
-  add("📚 ملخص: "+lesson,"u");
+  add("📚 ملخص: "+lesson+" ("+subject+")","u");
   const ty=typ();
   try{
     const r=await fetch("/lesson_summary",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({level,branch,subject,lesson})});
     const d=await r.json();ty.remove();add(d.summary||"خطأ","b");
-  }catch(e){ty.remove();add("تعذر","b")}
+  }catch(e){ty.remove();add("تعذر الاتصال","b")}
 }
 function downloadChat(){
   const name=localStorage.getItem("mu")||"مستخدم";
@@ -574,7 +602,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const C='moka-v13';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v14';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -669,7 +697,14 @@ def summ():
 def lesson_summary():
     try:
         d = request.get_json(silent=True) or {}
-        return jsonify({"summary": generate_lesson_summary(d.get("level",""), d.get("branch",""), d.get("subject",""), d.get("lesson",""))})
+        level = d.get("level","")
+        branch = d.get("branch","")
+        subject = d.get("subject","")
+        lesson = d.get("lesson","")
+        if not all([level, branch, subject, lesson]):
+            return jsonify({"summary": "⚠️ الرجاء ملء جميع الحقول"})
+        result = generate_lesson_summary(level, branch, subject, lesson)
+        return jsonify({"summary": result})
     except Exception as e:
         return jsonify({"summary": f"⚠️ خطأ: {str(e)}"})
 
