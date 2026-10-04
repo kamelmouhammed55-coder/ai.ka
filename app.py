@@ -105,6 +105,11 @@ def summarize_text(text):
     return "⚠️ تعذر التلخيص حالياً."
 
 
+# ====== الشعار (SVG) ======
+LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#10a37f"/><stop offset="100%" style="stop-color:#7c3aed"/></linearGradient></defs><polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#g)"/><text x="50" y="65" font-family="Arial" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text></svg>'''
+
+LOGO_BASE64 = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+"
+
 # ====== الواجهة ======
 HTML = r"""
 <!doctype html>
@@ -115,7 +120,7 @@ HTML = r"""
 <title>Moka.AI</title>
 <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#10a37f">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,__LOGO_BASE64__">
 <style>
   :root {
     --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
@@ -132,23 +137,24 @@ HTML = r"""
   #loginScreen {
     position: fixed; top: 0; left: 0;
     width: 100%; height: 100%;
-    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 100%);
+    background: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d0d 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     z-index: 999; padding: 20px;
   }
   #loginScreen.hidden { display: none; }
-  .login-logo { width: 100px; height: 100px; margin-bottom: 20px; }
+  .login-logo { width: 120px; height: 120px; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(16,163,127,0.4)); }
   .login-title {
-    font-size: 32px; font-weight: bold; margin-bottom: 8px;
+    font-size: 36px; font-weight: bold; margin-bottom: 8px;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .login-subtitle { font-size: 14px; color: #888; margin-bottom: 30px; }
   .login-box {
     width: 100%; max-width: 360px;
-    background: #1a1a1a; border: 1px solid #333;
+    background: rgba(26,26,26,0.95); border: 1px solid #333;
     border-radius: 20px; padding: 24px;
+    backdrop-filter: blur(10px);
   }
   .login-box label {
     display: block; font-size: 13px; color: #aaa;
@@ -161,6 +167,7 @@ HTML = r"""
     font-size: 16px; outline: none;
     margin-bottom: 16px;
   }
+  .login-box input:focus { border-color: var(--accent); }
   .login-btn {
     width: 100%; padding: 14px;
     border-radius: 12px; border: none;
@@ -168,6 +175,7 @@ HTML = r"""
     color: white; font-size: 16px; font-weight: bold;
     cursor: pointer;
   }
+  .login-btn:active { transform: scale(0.98); }
   .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #555; }
 
   #appScreen { display: none; height: 100vh; flex-direction: column; }
@@ -192,6 +200,8 @@ HTML = r"""
     color: #aaa; padding: 6px 10px; border-radius: 8px;
     cursor: pointer; font-size: 12px;
   }
+  .header-btn:hover { background: #222; }
+
   #chat {
     flex: 1; overflow-y: auto; padding: 24px 16px;
     display: flex; flex-direction: column; gap: 18px;
@@ -255,6 +265,7 @@ HTML = r"""
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
+  button.send:active { transform: scale(0.92); }
   button.send:disabled { opacity: 0.4; }
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
@@ -295,16 +306,7 @@ HTML = r"""
 <body>
 
 <div id="loginScreen">
-  <svg class="login-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="gradLogin" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style="stop-color:#10a37f;stop-opacity:1" />
-        <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
-      </linearGradient>
-    </defs>
-    <polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#gradLogin)" />
-    <text x="50" y="65" font-family="Arial, sans-serif" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text>
-  </svg>
+  <div class="login-logo">__LOGO_SVG__</div>
   <div class="login-title">Moka.AI</div>
   <div class="login-subtitle">مساعدك الذكي من تطوير محمد كامل</div>
   <div class="login-box">
@@ -322,16 +324,7 @@ HTML = r"""
       <button class="header-btn" onclick="openSummary()">📝 تلخيص</button>
     </div>
     <div class="title-group">
-      <svg class="header-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="gradHeader" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#10a37f;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        <polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" fill="url(#gradHeader)" />
-        <text x="50" y="65" font-family="Arial, sans-serif" font-size="45" font-weight="bold" fill="white" text-anchor="middle">M</text>
-      </svg>
+      <div class="header-logo">__LOGO_SVG__</div>
       <h1>Moka.AI</h1>
     </div>
     <div style="width: 90px;"></div>
@@ -500,6 +493,9 @@ HTML = r"""
 </html>
 """
 
+# استبدال الشعار في HTML
+HTML = HTML.replace("__LOGO_SVG__", LOGO_SVG).replace("__LOGO_BASE64__", LOGO_BASE64)
+
 @app.route("/")
 def home():
     return render_template_string(HTML)
@@ -519,8 +515,14 @@ def manifest():
         "dir": "rtl",
         "icons": [
             {
-                "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+",
+                "src": "data:image/svg+xml;base64," + LOGO_BASE64,
                 "sizes": "192x192",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "data:image/svg+xml;base64," + LOGO_BASE64,
+                "sizes": "512x512",
                 "type": "image/svg+xml",
                 "purpose": "any maskable"
             }
@@ -533,4 +535,22 @@ def chat_api():
         data = request.get_json(silent=True) or {}
         message = data.get("message", "")
         session_id = data.get("session_id", "default")
-        reply = ask_ai(me
+        reply = ask_ai(message, session_id)
+        return jsonify({"reply": reply})
+    except Exception as e:
+        return jsonify({"reply": f"حدث خطأ: {str(e)}"}), 500
+
+@app.post("/summarize")
+def summarize_api():
+    try:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "")
+        if not text:
+            return jsonify({"summary": "الرجاء إرسال نص للتلخيص."})
+        summary = summarize_text(text)
+        return jsonify({"summary": summary})
+    except Exception as e:
+        return jsonify({"summary": f"حدث خطأ: {str(e)}"}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
