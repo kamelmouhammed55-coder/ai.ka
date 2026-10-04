@@ -1,16 +1,11 @@
-# ============================================================
-# Moka.AI v11.0 - مساعد ذكي عربي
-# المطور: محمد كامل | تاريخ الإنشاء: 4 أكتوبر 2026
-# ============================================================
+# Moka.AI v12.0 - مساعد ذكي عربي
+# المطور: محمد كامل
 
 from flask import Flask, request, jsonify, render_template_string
-import os, json, urllib.request, urllib.error, datetime, io
+import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
-import base64 as b64
-from PIL import Image, ImageEnhance, ImageFilter
 
 app = Flask(__name__)
-
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
@@ -41,9 +36,9 @@ def load_stats():
         with open(STATS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return {"visitors": 0, "logins": 0, "messages": 0, "summaries": 0,
+        return {"visitors": 0, "logins": 0, "messages": 0,
                 "modes": {"general": 0, "math": 0, "code": 0, "religion": 0},
-                "recent": [], "messages_log": [], "devices": []}
+                "recent": [], "messages_log": []}
 
 def save_stats(s):
     try:
@@ -58,29 +53,22 @@ def get_date_context():
     days_ar = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
     return f"""معلومات مهمة:
 - التاريخ الحالي: {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year}
-- الوقت: {today.strftime('%H:%M')}
 - تاريخ إنشاء التطبيق: 4 أكتوبر 2026
 - مطورك: محمد كامل
 - إذا سُئلت "متى صنعت؟" أجب: "صنعني محمد كامل يوم 4 أكتوبر 2026."
-- لا تقل أبداً أنك GPT أو OpenAI.
+- لا تقل أنك GPT أو OpenAI أبداً.
 
-معلومات المباريات والفرق:
-- إذا سُئلت عن مباراة، اذكر: الفريقين، التاريخ، البطولة.
-- إذا سُئلت عن تأسيس فريق، اذكر: سنة التأسيس، البلد، البطولات.
-- أمثلة: ريال مدريد (تأسس 1902، إسبانيا)، برشلونة (1899، إسبانيا)، مانشستر يونايتد (1878)، ليفربول (1892)، بايرن ميونخ (1900)، يوفنتوس (1897).
-- منتخب الجزائر (تأسس 1962)، الأهلي المصري (1907)، الزمالك (1911).
-- الدوري الإنجليزي، الإسباني، الإيطالي، الألماني، الفرنسي، الجزائري.
-- كأس العالم 2026 في أمريكا وكندا والمكسيك (11 جوان - 19 جويلية 2026).
-- كأس أمم أفريقيا 2025 في المغرب.
-- دوري أبطال أوروبا.
-"""
+معلومات المباريات:
+- ريال مدريد (1902)، برشلونة (1899)، مانشستر يونايتد (1878)، ليفربول (1892)، بايرن ميونخ (1900)، يوفنتوس (1897)، منتخب الجزائر (1962)، الأهلي المصري (1907)، الزمالك (1911).
+- كأس العالم 2026 في أمريكا وكندا والمكسيك.
+- اذكر دائماً: الفريقين، التاريخ، البطولة."""
 
 CURRICULUM = """
 المنهاج الجزائري 2026-2027:
 - الابتدائي: الإنجليزية من السنة الثالثة.
 - المتوسط: معامل الرياضيات 4 في الرابعة متوسط.
 - الثانوي: جذع آداب (31 ساعة)، علوم (32 ساعة).
-- شهادة التعليم المتوسط (BEM) والبكالوريا (BAC).
+- شهادات: BEM، BAC.
 """
 
 FORBIDDEN = ["جنس","sex","porn","إباحي","عاري","شهوة","زنى","زنا","خلاعة","فاحشة"]
@@ -93,7 +81,7 @@ def search_web(query):
         from urllib.parse import quote_plus
         import re
         url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as r:
             html = r.read().decode("utf-8", errors="ignore")
         results = re.findall(r'<a rel="nofollow" class="result__a" href="[^"]+">(.*?)</a>', html)
@@ -109,24 +97,22 @@ def search_web(query):
 
 DATE_CONTEXT = get_date_context()
 
-NO_LATEX_RULE = """
-قواعد أساسية:
+NO_LATEX = """
+قواعد:
 1. اكتب بالعربية الفصحى المبسطة.
-2. ممنوع استخدام LaTeX (\\sqrt، \\frac، \\quad، \\text، \\displaystyle).
+2. ممنوع استخدام LaTeX أو رموز مثل \\sqrt \\frac \\quad \\text \\displaystyle.
 3. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3".
-4. استخدم الرموز البسيطة فقط: + - × ÷ = √ ² ³.
-5. نظّم إجابتك بعناوين ونقاط واضحة.
+4. استخدم الرموز البسيطة: + - × ÷ = √ ² ³.
+5. نظّم الإجابة بعناوين ونقاط.
 """
 
 PROMPTS = {
-    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
-    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة عربية بسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
-    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً واشرحه بجمل بسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
-    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
-    "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس مفصلة.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX_RULE}",
+    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بالعربية البسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
 }
-
-ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه."
 
 convs = {}
 
@@ -136,24 +122,24 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة."
     key = f"{sid}_{mode}"
     sp = PROMPTS.get(mode, PROMPTS["general"])
-    if is_admin: sp += ADMIN_EXTRA
+    if is_admin: sp += "\n\nأنت تتحدث مع المطور محمد كامل. نفذ أوامره."
     if key not in convs:
         convs[key] = [{"role": "system", "content": sp}]
-    sports = ["مباراة","مباريات","منتخب","فريق","دوري","كأس","بطولة","مونديال","هدف","ملعب","تأسس","تأسست","يلعب","متى"]
+    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب"]
     if any(k in msg for k in sports):
-        web_info = search_web(msg)
-        if web_info:
-            convs[key].append({"role": "system", "content": f"معلومات محدثة من الإنترنت:\n{web_info}\n\nاستخدم هذه المعلومات للإجابة بدقة."})
+        wi = search_web(msg)
+        if wi:
+            convs[key].append({"role": "system", "content": f"من الإنترنت:\n{wi}"})
     convs[key].append({"role": "user", "content": msg})
     if len(convs[key]) > 21:
         convs[key] = [convs[key][0]] + convs[key][-20:]
-    last_error = ""
+    last_err = ""
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
-                data=json.dumps({"model": m, "messages": convs[key], "temperature": 0.7, "max_tokens": 3000}).encode(),
+                data=json.dumps({"model": m, "messages": convs[key], "temperature": 0.7, "max_tokens": 2500}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json",
-                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+                         "User-Agent": "Mozilla/5.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode())
@@ -163,18 +149,16 @@ def ask_ai(msg, sid, mode, is_admin=False):
             reply = reply.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
             convs[key].append({"role": "assistant", "content": reply})
             return reply
-        except urllib.error.HTTPError as e:
-            last_error = f"{e.code}"; continue
         except Exception as e:
-            last_error = str(e); continue
-    return f"⚠️ فشل الاتصال. ({last_error})"
+            last_err = str(e); continue
+    return f"⚠️ فشل الاتصال. ({last_err})"
 
 def summarize(text):
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
-                    {"role": "system", "content": "لخص النص في نقاط واضحة بالعربية. " + NO_LATEX_RULE},
+                    {"role": "system", "content": "لخص النص في نقاط بالعربية." + NO_LATEX},
                     {"role": "user", "content": text}], "temperature": 0.5, "max_tokens": 2000}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
@@ -191,7 +175,7 @@ def generate_lesson_summary(level, branch, subject, lesson):
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
                     {"role": "system", "content": PROMPTS["summary"]},
-                    {"role": "user", "content": prompt}], "temperature": 0.6, "max_tokens": 3000}).encode(),
+                    {"role": "user", "content": prompt}], "temperature": 0.6, "max_tokens": 2500}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
@@ -199,117 +183,92 @@ def generate_lesson_summary(level, branch, subject, lesson):
         except Exception:
             continue
     return "⚠️ تعذر إنشاء الملخص."
-LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="50%" style="stop-color:#5b7cfa"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient><linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fbbf24"/><stop offset="100%" style="stop-color:#f59e0b"/></linearGradient></defs><polygon points="50,3 88,25 88,75 50,97 12,75 12,25" fill="url(#lg1)"/><polygon points="50,8 83,27 83,73 50,92 17,73 17,27" fill="none" stroke="white" stroke-width="1.5" opacity="0.4"/><circle cx="50" cy="50" r="28" fill="white" opacity="0.15"/><text x="50" y="66" font-family="Arial, sans-serif" font-size="42" font-weight="bold" fill="white" text-anchor="middle">M</text><circle cx="72" cy="28" r="6" fill="url(#lg2)"/><path d="M 72 25 L 73.5 28 L 76.5 28 L 74 30 L 75 33 L 72 31 L 69 33 L 70 30 L 67.5 28 L 70.5 28 Z" fill="white" opacity="0.9"/></svg>'''
+LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="50%" style="stop-color:#5b7cfa"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient></defs><polygon points="50,3 88,25 88,75 50,97 12,75 12,25" fill="url(#lg)"/><circle cx="50" cy="50" r="28" fill="white" opacity="0.15"/><text x="50" y="66" font-family="Arial" font-size="42" font-weight="bold" fill="white" text-anchor="middle">M</text><circle cx="72" cy="28" r="6" fill="#fbbf24"/></svg>'''
 
 HTML = """<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moka.AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#7c3aed">
-<script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}</script>
-<script>
-(function(){var t=localStorage.getItem("moka_theme")||"light";document.documentElement.setAttribute("data-theme",t);})();
-</script>
+<script>(function(){var t=localStorage.getItem("moka_theme")||"light";document.documentElement.setAttribute("data-theme",t);})();</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f7f8fc;--card:#fff;--sidebar:#fff;--input:#f1f3f9;--text:#1a1f36;--text-soft:#4a5168;--text-mute:#8b91a8;--border:#e4e7f0;
-  --accent:#7c3aed;--accent2:#5b7cfa;--accent3:#a78bfa;--accent-soft:#f3e8ff;--gold:#f59e0b;
-  --user-bg:linear-gradient(135deg,#7c3aed,#5b7cfa);--user-text:#fff;
-  --bot-bg:#fff;--bot-text:#1a1f36;
-  --shadow:0 4px 20px rgba(124,58,237,.08);
-  --header-bg:#fff;--chat-bg:#f7f8fc;
-}
-[data-theme="dark"]{
-  --bg:#0d0d1a;--card:#16162a;--sidebar:#16162a;--input:#1e1e35;--text:#e8eaf0;--text-soft:#b8bdc9;--text-mute:#7a8094;--border:#2a2a45;
-  --accent:#a78bfa;--accent2:#7c3aed;--accent3:#5b7cfa;--accent-soft:#1e1e35;--gold:#fbbf24;
-  --user-bg:linear-gradient(135deg,#7c3aed,#a78bfa);--user-text:#fff;
-  --bot-bg:#1e1e35;--bot-text:#e8eaf0;
-  --shadow:0 4px 20px rgba(0,0,0,.4);
-  --header-bg:#16162a;--chat-bg:#0d0d1a;
-}
+:root{--bg:#f7f8fc;--card:#fff;--input:#f1f3f9;--text:#1a1f36;--text-soft:#4a5168;--text-mute:#8b91a8;--border:#e4e7f0;--accent:#7c3aed;--accent2:#5b7cfa;--accent-soft:#f3e8ff;--chat:#f7f8fc;--header:#fff}
+[data-theme="dark"]{--bg:#0d0d1a;--card:#16162a;--input:#1e1e35;--text:#e8eaf0;--text-soft:#b8bdc9;--text-mute:#7a8094;--border:#2a2a45;--accent:#a78bfa;--accent2:#7c3aed;--accent-soft:#1e1e35;--chat:#0d0d1a;--header:#16162a}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6;transition:background .3s,color .3s}
-#login{position:fixed;inset:0;background:linear-gradient(135deg,#f3e8ff 0%,#f7f8fc 50%,#eef1ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto;transition:background .3s}
+#login{position:fixed;inset:0;background:linear-gradient(135deg,#f3e8ff 0%,#f7f8fc 50%,#eef1ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto}
 [data-theme="dark"] #login{background:linear-gradient(135deg,#1a0d2e 0%,#0d0d1a 50%,#0d1a2e 100%)}
 #login.hide{display:none}
 .logo-big{width:130px;height:130px;margin-bottom:20px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 15px 40px rgba(124,58,237,.4))}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.lt{font-size:42px;font-weight:800;margin-bottom:8px;background:linear-gradient(90deg,#7c3aed,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1px}
+.lt{font-size:42px;font-weight:800;margin-bottom:8px;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .ls{color:var(--text-mute);margin-bottom:28px;font-size:14px}
-.lb{width:100%;max-width:400px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(124,58,237,.15);transition:background .3s}
+.lb{width:100%;max-width:400px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(124,58,237,.15)}
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
-.lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;transition:all .2s;font-family:inherit}
-.lb input:focus{border-color:var(--accent);background:var(--card);box-shadow:0 0 0 4px var(--accent-soft)}
+.lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;font-family:inherit}
+.lb input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .pw-wrap{position:relative;margin-bottom:14px}
 .pw-wrap input{margin-bottom:0;padding-left:48px}
-.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px;border-radius:8px}
-.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 8px 25px rgba(124,58,237,.4);transition:transform .2s}
-.lb button.main:active{transform:scale(.98)}
+.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px}
+.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 8px 25px rgba(124,58,237,.4)}
 .lb button.secondary{width:100%;padding:13px;border-radius:12px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;font-family:inherit}
-.lb button.secondary:hover{background:var(--accent-soft)}
-.lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.7}
+.lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px}
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
-.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998;backdrop-filter:blur(3px)}
+.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998}
 .ov.on{display:block}
-.sb{position:fixed;top:0;right:-320px;width:300px;height:100%;background:var(--sidebar);border-left:1px solid var(--border);z-index:999;transition:right .3s;padding:24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto;box-shadow:-10px 0 40px rgba(124,58,237,.1)}
+.sb{position:fixed;top:0;right:-320px;width:300px;height:100%;background:var(--card);border-left:1px solid var(--border);z-index:999;transition:right .3s;padding:24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
 .sb.on{right:0}
-.sb h2{font-size:12px;color:var(--text-mute);margin:14px 0 6px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
-.avatar{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;color:white;margin:0 auto 12px;box-shadow:0 10px 30px rgba(124,58,237,.4)}
-.username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px;color:var(--text)}
+.sb h2{font-size:12px;color:var(--text-mute);margin:14px 0 6px;letter-spacing:1.5px;font-weight:700}
+.avatar{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;color:white;margin:0 auto 12px}
+.username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px}
 .role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px}
-.mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:500;transition:all .2s}
-.mb:hover{background:var(--accent-soft);color:var(--accent)}
-.mb.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
+.mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:500}
+.mb:hover,.mb.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
 .lo{margin-top:auto;padding:13px;border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600}
 [data-theme="dark"] .lo{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4)}
-.dl{padding:13px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:6px;font-family:inherit;font-weight:500}
-.hd{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--header-bg);display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(124,58,237,.04);transition:background .3s}
+.dl{padding:13px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:6px;font-family:inherit}
+.hd{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--header);display:flex;align-items:center;justify-content:space-between}
 .tg{display:flex;align-items:center;gap:12px;margin:0 auto}
 .hl-logo{width:42px;height:42px}
-h1{font-size:20px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.5px}
-.hb{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:10px 12px;border-radius:12px;cursor:pointer;font-size:16px;font-family:inherit;transition:all .2s}
-.hb:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-.theme-btn{background:var(--card);border:1px solid var(--border);padding:10px 12px;border-radius:12px;cursor:pointer;font-size:16px;transition:all .2s}
-.theme-btn:hover{border-color:var(--accent)}
-#ch{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:20px;scroll-behavior:smooth;background:var(--chat-bg);transition:background .3s}
+h1{font-size:20px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hb,.theme-btn{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:10px 12px;border-radius:12px;cursor:pointer;font-size:16px;font-family:inherit}
+.hb:hover,.theme-btn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
+#ch{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:20px;background:var(--chat)}
 #ch::-webkit-scrollbar{width:8px}
 #ch::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px;text-align:center;padding:24px}
-.welcome svg{width:120px;height:120px;filter:drop-shadow(0 10px 30px rgba(124,58,237,.3))}
+.welcome svg{width:120px;height:120px}
 .welcome h2{font-size:26px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.welcome p{color:var(--text-mute);font-size:15px;max-width:300px;line-height:1.7}
-.mw{display:flex;max-width:92%;animation:si .4s ease;position:relative}
+.welcome p{color:var(--text-mute);font-size:15px;max-width:300px}
+.mw{display:flex;max-width:92%;animation:si .4s;position:relative}
 .mw.u{align-self:flex-end}
 .mw.b{align-self:flex-start}
 @keyframes si{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .m{padding:16px 20px;border-radius:20px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
-.u .m{background:var(--user-bg);color:var(--user-text);border-bottom-left-radius:6px;box-shadow:0 4px 15px rgba(124,58,237,.3)}
-.b .m{background:var(--bot-bg);color:var(--bot-text);border:1px solid var(--border);border-bottom-right-radius:6px;box-shadow:var(--shadow)}
-.copy-btn{position:absolute;bottom:-30px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:8px;opacity:0;transition:opacity .2s;font-family:inherit}
+.u .m{background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;border-bottom-left-radius:6px}
+.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-right-radius:6px}
+.copy-btn{position:absolute;bottom:-30px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:8px;opacity:0;font-family:inherit}
 .mw.b:hover .copy-btn{opacity:1}
-.copy-btn:hover{color:var(--accent);border-color:var(--accent)}
-.tp{display:inline-flex;gap:6px;padding:18px 22px;background:var(--bot-bg);border:1px solid var(--border);border-radius:20px;border-bottom-right-radius:6px;box-shadow:var(--shadow)}
+.tp{display:inline-flex;gap:6px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:20px}
 .tp span{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:bo 1.4s infinite}
 .tp span:nth-child(2){animation-delay:.2s}
 .tp span:nth-child(3){animation-delay:.4s}
 @keyframes bo{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-8px);opacity:1}}
-.ia{padding:18px 20px 22px;background:var(--header-bg);display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border);transition:background .3s}
+.ia{padding:18px 20px 22px;background:var(--header);display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border)}
 .iw{flex:1}
-textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5;transition:all .2s}
-textarea:focus{border-color:var(--accent);background:var(--card);box-shadow:0 0 0 4px var(--accent-soft)}
+textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5}
+textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 textarea::placeholder{color:var(--text-mute)}
-button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(124,58,237,.4);transition:transform .2s}
-button.sd:active{transform:scale(.95)}
+button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 button.sd:disabled{opacity:.4}
-button.copy-main{background:var(--card);border:1px solid var(--border);color:var(--text-soft);box-shadow:none}
-button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-.vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:var(--header-bg);border-top:1px solid var(--border)}
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto;backdrop-filter:blur(4px)}
+button.copy-main{background:var(--card);border:1px solid var(--border);color:var(--text-soft)}
+.vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:var(--header);border-top:1px solid var(--border)}
+.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto}
 .mo.on{display:flex}
-.md{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(124,58,237,.3)}
+.md{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto}
 .md h2{font-size:20px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:600}
 .md select,.md input,.md textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit}
-.md textarea{resize:vertical;min-height:180px;line-height:1.7}
+.md textarea{resize:vertical;min-height:180px}
 .mbtns{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
 .mbtns button{padding:13px 24px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
 .mbtns .p{background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white}
@@ -330,7 +289,7 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 </div>
 <button class="main" onclick="login()">🚀 تسجيل الدخول</button>
 <button class="secondary" onclick="register()">✨ إنشاء حساب جديد</button>
-<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية تامة</div>
+<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية</div>
 </div>
 </div>
 
@@ -355,7 +314,7 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 <div class="hd">
 <button class="hb" onclick="openS()">☰</button>
 <div class="tg"><div class="hl-logo">__LOGO_SVG__</div><h1>Moka.AI</h1></div>
-<button class="theme-btn" onclick="toggleTheme()" id="themeBtn" title="تبديل الوضع">🌙</button>
+<button class="theme-btn" onclick="toggleTheme()" id="themeBtn">🌙</button>
 </div>
 <div id="ch">
 <div class="welcome" id="welcome">
@@ -365,7 +324,7 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 </div>
 </div>
 <form class="ia" id="f">
-<button type="button" class="sd copy-main" onclick="copyLast()" title="نسخ آخر رد">📋</button>
+<button type="button" class="sd copy-main" onclick="copyLast()">📋</button>
 <div class="iw"><textarea id="i" placeholder="أرسل رسالة..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();f.requestSubmit()}"></textarea></div>
 <button type="submit" class="sd" id="s">➤</button>
 </form>
@@ -407,51 +366,49 @@ fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:J
 
 window.addEventListener("DOMContentLoaded",()=>{
   const t=localStorage.getItem("moka_theme")||"light";
-  document.getElementById("themeBtn").textContent = t==="dark" ? "☀️" : "🌙";
+  document.getElementById("themeBtn").textContent = t==="dark"?"☀️":"🌙";
 });
 function toggleTheme(){
   const cur=document.documentElement.getAttribute("data-theme")||"light";
-  const nw = cur==="light" ? "dark" : "light";
+  const nw = cur==="light"?"dark":"light";
   document.documentElement.setAttribute("data-theme",nw);
   localStorage.setItem("moka_theme",nw);
-  document.getElementById("themeBtn").textContent = nw==="dark" ? "☀️" : "🌙";
+  document.getElementById("themeBtn").textContent = nw==="dark"?"☀️":"🌙";
 }
 function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,140)+"px"}
 function togglePw(){
-  const pw=document.getElementById("pw");
-  const btn=document.getElementById("pwToggle");
+  const pw=document.getElementById("pw"),btn=document.getElementById("pwToggle");
   if(pw.type==="password"){pw.type="text";btn.textContent="🙈";}
   else{pw.type="password";btn.textContent="👁️";}
 }
 async function login(){
   const u=document.getElementById("un").value.trim();
   const p=document.getElementById("pw").value.trim();
-  if(!u||!p){alert("املأ اسم المستخدم وكلمة المرور");return}
+  if(!u||!p){alert("املأ الحقول");return}
   try{
     const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!d.ok){alert("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
     localStorage.setItem("mu",d.name);
-    localStorage.setItem("muser",u);
     localStorage.setItem("mrole",d.role);
     show(d.name,d.role);
     fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"login",name:d.name})});
-  }catch(e){alert("تعذر الاتصال بالخادم")}
+  }catch(e){alert("تعذر الاتصال")}
 }
 async function register(){
   const u=document.getElementById("un").value.trim();
   const p=document.getElementById("pw").value.trim();
-  if(!u||!p){alert("املأ اسم المستخدم وكلمة المرور");return}
-  if(u.length<3){alert("اسم المستخدم يجب أن يكون 3 أحرف على الأقل");return}
-  if(p.length<4){alert("كلمة المرور يجب أن تكون 4 أحرف على الأقل");return}
+  if(!u||!p){alert("املأ الحقول");return}
+  if(u.length<3){alert("اسم المستخدم 3 أحرف على الأقل");return}
+  if(p.length<4){alert("كلمة المرور 4 أحرف على الأقل");return}
   if(u.toLowerCase()==="kamel"){alert("هذا الاسم محجوز");return}
   try{
     const r=await fetch("/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!d.ok){alert("❌ "+d.msg);return}
-    alert("✅ تم إنشاء الحساب بنجاح!\\nيمكنك الآن تسجيل الدخول.");
-  }catch(e){alert("تعذر الاتصال بالخادم")}
+    alert("✅ تم إنشاء الحساب! سجل الدخول الآن.");
+  }catch(e){alert("تعذر الاتصال")}
 }
 function show(n,r){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");
 document.getElementById("avatar").textContent=n.charAt(0).toUpperCase();
@@ -460,8 +417,7 @@ document.getElementById("urole").textContent=r==="admin"?"👑 المطور":"ع
 function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.clear();location.reload()}
 function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
-function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m)
-;});
+function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
 const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة",religion:"🕌 الدينية"};
 ch.innerHTML='<div class="welcome"><div style="width:120px;height:120px">__LOGO_SVG__</div><h2>'+names[m]+'</h2><p>كيف يمكنني مساعدتك؟</p></div>';closeS()}
 window.onload=()=>{const n=localStorage.getItem("mu");const r=localStorage.getItem("mrole");
@@ -470,10 +426,10 @@ let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v
 function add(t,c){const w=document.getElementById("welcome");if(w)w.remove();
 const wrapper=document.createElement("div");wrapper.className="mw "+c;
 const m=document.createElement("div");m.className="m";m.textContent=t;
-if(c==="b"){const cp=document.createElement("button");cp.className="copy-btn";cp.textContent="📋 نسخ";cp.onclick=()=>{navigator.clipboard.writeText(t);cp.textContent="✅ تم";setTimeout(()=>cp.textContent="📋 نسخ",1500)};wrapper.appendChild(cp);lastReply=t;}
+if(c==="b"){const cp=document.createElement("button");cp.className="copy-btn";cp.textContent="📋 نسخ";cp.onclick=()=>{navigator.clipboard.writeText(t);cp.textContent="✅";setTimeout(()=>cp.textContent="📋 نسخ",1500)};wrapper.appendChild(cp);lastReply=t;}
 wrapper.appendChild(m);ch.appendChild(wrapper);ch.scrollTop=ch.scrollHeight}
 function typ(){const w=document.createElement("div");w.className="mw b";const t=document.createElement("div");t.className="tp";t.innerHTML="<span></span><span></span><span></span>";w.appendChild(t);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w}
-function copyLast(){if(!lastReply){alert("لا يوجد رد للنسخ");return}navigator.clipboard.writeText(lastReply);alert("✅ تم نسخ آخر رد")}
+function copyLast(){if(!lastReply){alert("لا يوجد رد");return}navigator.clipboard.writeText(lastReply);alert("✅ تم النسخ")}
 f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";i.style.height="auto";s.disabled=true;const ty=typ();
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode,text:t,name:localStorage.getItem("mu")||"?"})});
 try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode,is_admin:isAdmin})});
@@ -481,24 +437,24 @@ const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove
 function openM(){document.getElementById("mo").classList.add("on")}
 function closeM(){document.getElementById("mo").classList.remove("on")}
 async function doSum(){const t=document.getElementById("st").value.trim();if(!t){alert("الصق النص");return}closeM();document.getElementById("st").value="";
-add("📝 لخّص: "+t.substring(0,80)+"...","u");const ty=typ();
+add("📝 لخّص...","u");const ty=typ();
 try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
-function openSummaries(){document.getElementById("summariesModal").classList.add("on")}
+function openSummaries(){document.getElem
+entById("summariesModal").classList.add("on")}
 function closeSummaries(){document.getElementById("summariesModal").classList.remove("on")}
 function updateBranches(){
   const level=document.getElementById("s_level").value;
-  const branchSel=document.getElementById("s_branch");
-  const subjSel=document.getElementById("s_subject");
+  const b=document.getElementById("s_branch"),sub=document.getElementById("s_subject");
   if(level.includes("متوسط")){
-    branchSel.innerHTML='<option value="جميع الشعب">جميع الشعب</option>';
-    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="التربية المدنية">التربية المدنية</option>';
+    b.innerHTML='<option value="جميع الشعب">جميع الشعب</option>';
+    sub.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option>';
   } else if(level.includes("ثانوي")){
-    branchSel.innerHTML='<option value="جذع مشترك آداب">جذع مشترك آداب</option><option value="جذع مشترك علوم">جذع مشترك علوم</option><option value="علوم تجريبية">علوم تجريبية</option><option value="رياضيات">رياضيات</option><option value="تقني رياضي">تقني رياضي</option><option value="تسيير واقتصاد">تسيير واقتصاد</option><option value="آداب وفلسفة">آداب وفلسفة</option><option value="لغات أجنبية">لغات أجنبية</option>';
-    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="الفلسفة">الفلسفة</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="العلوم الإسلامية">العلوم الإسلامية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option>';
+    b.innerHTML='<option value="جذع مشترك آداب">جذع مشترك آداب</option><option value="جذع مشترك علوم">جذع مشترك علوم</option><option value="علوم تجريبية">علوم تجريبية</option><option value="رياضيات">رياضيات</option><option value="تقني رياضي">تقني رياضي</option><option value="تسيير واقتصاد">تسيير واقتصاد</option><option value="آداب وفلسفة">آداب وفلسفة</option><option value="لغات أجنبية">لغات أجنبية</option>';
+    sub.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="الفلسفة">الفلسفة</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="العلوم الإسلامية">العلوم الإسلامية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option>';
   } else {
-    branchSel.innerHTML='<option value="">اختر المستوى أولاً</option>';
-    subjSel.innerHTML='<option value="">اختر الشعبة أولاً</option>';
+    b.innerHTML='<option value="">اختر المستوى أولاً</option>';
+    sub.innerHTML='<option value="">اختر الشعبة أولاً</option>';
   }
 }
 async function generateSummary(){
@@ -508,17 +464,17 @@ async function generateSummary(){
   const lesson=document.getElementById("s_lesson").value.trim();
   if(!level||!branch||!subject||!lesson){alert("املأ جميع الحقول");return}
   closeSummaries();
-  add("📚 طلب ملخص: "+level+" | "+branch+" | "+subject+" | "+lesson,"u");
+  add("📚 ملخص: "+lesson,"u");
   const ty=typ();
   try{
     const r=await fetch("/lesson_summary",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({level,branch,subject,lesson})});
     const d=await r.json();ty.remove();add(d.summary||"خطأ","b");
-  }catch(e){ty.remove();add("تعذر الاتصال","b")}
+  }catch(e){ty.remove();add("تعذر","b")}
 }
 function downloadChat(){
   const name=localStorage.getItem("mu")||"مستخدم";
-  let text="محادثة Moka.AI - "+name+"\\n"+new Date().toLocaleString("ar-DZ")+"\\n\\n";
+  let text="محادثة Moka.AI - "+name+"\\n\\n";
   document.querySelectorAll("#ch .mw").forEach(m=>{
     const isUser=m.classList.contains("u");const content=m.querySelector(".m");
     if(content){text+=(isUser?"👤 "+name:"🤖 Moka.AI")+":\\n"+content.textContent+"\\n\\n";}
@@ -533,29 +489,26 @@ HTML = HTML.replace("__LOGO_SVG__", LOGO_SVG)
 ADMIN_HTML = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة التحكم</title>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
 body{background:#f7f8fc;color:#1a1f36;font-family:Tahoma,sans-serif;padding:24px;line-height:1.6}
 h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:24px}
-.card{background:white;border:1px solid #e4e7f0;border-radius:14px;padding:22px;text-align:center;box-shadow:0 4px 20px rgba(124,58,237,.06)}
+.card{background:#fff;border:1px solid #e4e7f0;border-radius:14px;padding:22px;text-align:center}
 .card .num{font-size:34px;font-weight:bold;color:#7c3aed;margin-bottom:6px}
 .card .lbl{font-size:13px;color:#8b91a8}
-.box{background:white;border:1px solid #e4e7f0;border-radius:14px;padding:22px;margin-bottom:24px;box-shadow:0 4px 20px rgba(124,58,237,.06)}
+.box{background:#fff;border:1px solid #e4e7f0;border-radius:14px;padding:22px;margin-bottom:24px}
 .box h2{font-size:16px;margin-bottom:16px;color:#7c3aed}
-.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e4e7f0;font-size:13px;gap:10px;align-items:center;flex-wrap:wrap}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e4e7f0;font-size:13px;gap:10px;flex-wrap:wrap}
 .mode-bar{display:flex;justify-content:space-between;padding:12px;background:#f7f8fc;border-radius:10px;margin-bottom:10px}
 .msg-item{background:#f7f8fc;border-radius:10px;padding:14px;margin-bottom:12px;border-right:3px solid #7c3aed}
 .msg-item .meta{color:#8b91a8;font-size:11px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap}
-.msg-item .text{color:#1a1f36;font-size:14px;line-height:1.7;white-space:pre-wrap;word-wrap:break-word}
-.block-btn{background:#dc2626;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;display:inline-block}
-.unblock-btn{background:#7c3aed;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;display:inline-block;margin-right:6px}
+.block-btn{background:#dc2626;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none}
+.unblock-btn{background:#7c3aed;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;margin-right:6px}
 </style></head><body>
 <h1>📊 لوحة تحكم Moka.AI</h1>
 <div class="grid">
 <div class="card"><div class="num">{{s.visitors}}</div><div class="lbl">👁️ الزوار</div></div>
 <div class="card"><div class="num">{{s.logins}}</div><div class="lbl">🔑 تسجيلات</div></div>
 <div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 رسائل</div></div>
-<div class="card"><div class="num">{{s.summaries}}</div><div class="lbl">📝 تلخيص</div></div>
 <div class="card"><div class="num">{{users_count}}</div><div class="lbl">👥 حسابات</div></div>
 </div>
 <div class="box"><h2>👥 قائمة الحسابات</h2>
@@ -569,20 +522,15 @@ h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#7c3aed
 <div class="mode-bar"><span>💻 برمجة</span><b>{{s.modes.code}}</b></div>
 <div class="mode-bar"><span>🕌 دينية</span><b>{{s.modes.religion}}</b></div>
 </div>
-<div class="box"><h2>💬 كل الرسائل (آخر 50)</h2>
+<div class="box"><h2>💬 آخر 50 رسالة</h2>
 {% if s.messages_log %}{% for m in s.messages_log[-50:]|reverse %}
-<div class="msg-item"><div class="meta"><span>👤 <b>{{m.name}}</b></span><span>📱 {{m.ip}}</span><span>🧠 {{m.mode}}</span><span>🕐 {{m.time}}</span></div><div class="text">💬 {{m.text}}</div></div>
-{% endfor %}{% else %}<p style="color:#8b91a8;text-align:center;">لا توجد رسائل بعد.</p>{% endif %}
+<div class="msg-item"><div class="meta"><span>👤 <b>{{m.name}}</b></span><span>📱 {{m.ip}}</span><span>🧠 {{m.mode}}</span><span>🕐 {{m.time}}</span></div><div>💬 {{m.text}}</div></div>
+{% endfor %}{% else %}<p style="text-align:center;color:#8b91a8;">لا توجد رسائل بعد.</p>{% endif %}
 </div>
 <div class="box"><h2>🕐 آخر 20 زيارة</h2>
 {% for r in s.recent[-20:]|reverse %}
-<div class="row"><span>👤 {{r.name}}</span><span style="color:#8b91a8">📱 {{r.device}}</span><span style="color:#8b91a8">{{r.ip}}</span><span style="color:#8b91a8">{{r.time}}</span>
+<div class="row"><span>👤 {{r.name}}</span><span style="color:#8b91a8">{{r.ip}}</span><span style="color:#8b91a8">{{r.time}}</span>
 <a href="/block/{{r.ip}}?key={{key}}" class="block-btn">🚫</a><a href="/unblock/{{r.ip}}?key={{key}}" class="unblock-btn">✅</a></div>
-{% endfor %}</div>
-<div class="box"><h2>📱 آخر 20 جهاز</h2>
-{% for d in s.devices[-20:]|reverse %}
-<div class="row"><span>📱 {{d.device}}</span><span style="color:#8b91a8">🌐 {{d.browser}}</span><span style="color:#8b91a8">{{d.ip}}</span><span style="color:#8b91a8">{{d.time}}</span>
-<a href="/block/{{d.ip}}?key={{key}}" class="block-btn">🚫</a><a href="/unblock/{{d.ip}}?key={{key}}" class="unblock-btn">✅</a></div>
 {% endfor %}</div>
 </body></html>"""
 
@@ -596,7 +544,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const CACHE='moka-v11';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v12';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -617,12 +565,12 @@ def do_register():
         d = request.get_json(silent=True) or {}
         u = d.get("username", "").strip().lower()
         p = d.get("password", "").strip()
-        if not u or not p: return jsonify({"ok": False, "msg": "املأ جميع الحقول"})
-        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير جداً (3 أحرف على الأقل)"})
-        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة جداً (4 أحرف على الأقل)"})
-        if u == "kamel": return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
+        if not u or not p: return jsonify({"ok": False, "msg": "املأ الحقول"})
+        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير"})
+        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة"})
+        if u == "kamel": return jsonify({"ok": False, "msg": "الاسم محجوز"})
         users = load_users()
-        if u in users: return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقاً، اختر اسماً آخر"})
+        if u in users: return jsonify({"ok": False, "msg": "الاسم موجود مسبقاً"})
         users[u] = {"password": p, "role": "user", "name": u}
         save_users(users)
         return jsonify({"ok": True})
@@ -654,33 +602,18 @@ def track():
         if ip in BLOCKED_IPS: return jsonify({"ok": False, "blocked": True}), 403
         d = request.get_json(silent=True) or {}
         t = d.get("type", "")
-        ua = request.headers.get("User-Agent", "?")
         s = load_stats()
-        device = "غير معروف"; browser = "غير معروف"
-        if "Android" in ua: device = "Android"
-        elif "iPhone" in ua or "iPad" in ua: device = "iPhone/iPad"
-        elif "Windows" in ua: device = "Windows"
-        elif "Mac" in ua: device = "Mac"
-        if "Chrome" in ua: browser = "Chrome"
-        elif "Firefox" in ua: browser = "Firefox"
-        elif "Safari" in ua: browser = "Safari"
-        elif "Edge" in ua: browser = "Edge"
-        if t == "visit":
-            s["visitors"] += 1
-            s["devices"].append({"ip": ip[:15], "device": device, "browser": browser, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
-            s["devices"] = s["devices"][-50:]
+        if t == "visit": s["visitors"] += 1
         elif t == "login":
             s["logins"] += 1
-            s["recent"].append({"name": d.get("name", "?"), "ip": ip[:15], "device": device, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
+            s["recent"].append({"name": d.get("name","?"), "ip": ip[:15], "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
             s["recent"] = s["recent"][-50:]
         elif t == "message":
             s["messages"] += 1
             m = d.get("mode", "general")
             if m in s["modes"]: s["modes"][m] += 1
-            s["messages_log"].append({"ip": ip[:15], "name": d.get("name", "?"), "text": d.get("text", "")[:200], "mode": m, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
+            s["messages_log"].append({"ip": ip[:15], "name": d.get("name","?"), "text": d.get("text","")[:200], "mode": m, "time": datetime.datetime.now().strftime("%m/%d %H:%M")})
             s["messages_log"] = s["messages_log"][-100:]
-        elif t == "summary":
-            s["summaries"] += 1
         save_stats(s)
         return jsonify({"ok": True})
     except Exception as e:
