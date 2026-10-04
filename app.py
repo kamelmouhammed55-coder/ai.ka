@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify, render_template_string
-import os, json, urllib.request, datetime
+import os, json, urllib.request, urllib.error, datetime
 
 app = Flask(__name__)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
+VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
 
 ADMIN_KEY = "moka2026kamel"
 BLOCKED_IPS = set()
@@ -16,7 +17,7 @@ def load_stats():
             return json.load(f)
     except Exception:
         return {"visitors": 0, "logins": 0, "messages": 0, "summaries": 0,
-                "modes": {"general": 0, "math": 0, "code": 0, "religion": 0},
+                "modes": {"general": 0, "math": 0, "code": 0, "religion": 0, "edit": 0},
                 "recent": [], "messages_log": [], "devices": []}
 
 def save_stats(s):
@@ -32,45 +33,49 @@ CURRICULUM = """
 - المتوسط: معامل الرياضيات 4 في الرابعة متوسط، العربية 5.
 - الثانوي: جذع آداب (31 ساعة)، علوم (32 ساعة).
 - شعبة الرياضيات (3 ثانوي): رياضيات معامل 8، فيزياء معامل 6.
+- شهادة التعليم المتوسط (BEM): تشمل العربية، الرياضيات، الفرنسية، الإنجليزية، العلوم، الفيزياء، التاريخ والجغرافيا، التربية الإسلامية، التربية المدنية.
 """
 
-FORBIDDEN = ["جنس", "sex", "porn", "إباحي", "عاري", "شهوة", "عاهر", "زنى", "زنا", "خلاعة", "فاحشة"]
+FORBIDDEN = ["جنس", "sex", "porn", "إباحي", "عاري", "شهوة", "زنى", "زنا", "خلاعة", "فاحشة"]
 
 def is_forbidden(text):
-    t = text.lower()
-    return any(w in t for w in FORBIDDEN)
+    return any(w in text.lower() for w in FORBIDDEN)
 
 PROMPTS = {
-    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية البسيطة. لا تستخدم LaTeX. لا تقل أنك GPT. إذا سُئلت عن محتوى غير لائق، ارفض بأدب ووجه المستخدم للسؤال في مواضيع مفيدة.\n\n" + CURRICULUM,
-    "math": "أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة بسيطة. لا تستخدم LaTeX.\n\n" + CURRICULUM,
-    "code": "أنت Moka.AI، خبير برمجة. اكتب واشرح الأكواد بوضوح.",
-    "religion": """أنت Moka.AI، مساعد متخصص في العلوم الإسلامية.
-مصادرك الموثوقة:
-- القرآن الكريم (الرسم العثماني).
-- صحيح البخاري وصحيح مسلم.
-- كتب التفسير المعتمدة (ابن كثير، الطبري، القرطبي).
-- كتب الفقه المعتمدة (المذاهب الأربعة).
-قواعد مهمة:
-1. إذا سُئلت عن آية، اذكرها من القرآن الكريم بدقة.
-2. إذا سُئلت عن حديث، اذكر درجته (صحيح/ضعيف) ومصدره.
-3. إذا كان السؤال عن خلاف فقهي، اذكر آراء المذاهب الأربعة.
-4. إذا لم تكن متأكداً من معلومة، قل "الله أعلم" ولا تفتِ بغير علم.
-5. لا تُصدر فتاوى في مسائل معقدة، ووجّه السائل لأهل العلم.
-6. كن محترماً، مؤدباً، واستخدم اللغة العربية الفصحى.
-7. اذكر الأدلة عند الإمكان (آية أو حديث).""",
+    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية الفصحى المبسطة. لا تستخدم LaTeX. لا تقل أنك GPT أو OpenAI.\n\n" + CURRICULUM,
+    "math": """أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بلغة بسيطة.
+إذا طلب منك المستخدم رسم دالة، أجب:
+1. اكتب المعادلة بوضوح.
+2. اذكر القمة والجذور ونقاط التقاطع.
+3. اكتب كود Python (matplotlib) لرسم الدالة.
+4. اذكر رابط Desmos للرسم التفاعلي.
+
+""" + CURRICULUM,
+    "code": "أنت Moka.AI، خبير برمجة. اكتب الكود منسقاً واشرحه بجمل بسيطة.",
+    "religion": """أنت Moka.AI، مساعد في العلوم الإسلامية.
+مصادرك: القرآن الكريم، صحيح البخاري ومسلم، كتب التفسير المعتمدة، المذاهب الأربعة.
+قواعد:
+1. اذكر الآية من القرآن بدقة.
+2. اذكر درجة الحديث ومصدره.
+3. اذكر آراء المذاهب في الخلافات الفقهية.
+4. إذا لم تكن متأكداً، قل "الله أعلم".
+5. كن محترماً ومؤدباً.""",
+    "edit": "أنت Moka.AI، خبير في تحرير الصور والنصوص. عندما تُرفع لك صورة، صفها بدقة واقترح تعديلات احترافية لتحسينها (الإضاءة، الألوان، الخلفية، الحدود). عندما يُرفع لك نص، حسّنه وأعد كتابته بأسلوب أفضل.",
 }
 
 convs = {}
 
 def ask_ai(msg, sid, mode):
     if not GROQ_API_KEY: return "⚠️ مفتاح API غير موجود."
-    if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة. اسألني عن شيء مفيد."
+    if not GROQ_API_KEY.startswith("gsk_"): return "⚠️ المفتاح غير صحيح."
+    if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة."
     key = f"{sid}_{mode}"
     if key not in convs:
         convs[key] = [{"role": "system", "content": PROMPTS.get(mode, PROMPTS["general"])}]
     convs[key].append({"role": "user", "content": msg})
     if len(convs[key]) > 21:
         convs[key] = [convs[key][0]] + convs[key][-20:]
+    last_error = ""
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
@@ -83,9 +88,13 @@ def ask_ai(msg, sid, mode):
             reply = data["choices"][0]["message"]["content"]
             convs[key].append({"role": "assistant", "content": reply})
             return reply
-        except Exception:
+        except urllib.error.HTTPError as e:
+            last_error = f"{e.code}"
             continue
-    return "⚠️ فشل الاتصال."
+        except Exception as e:
+            last_error = str(e)
+            continue
+    return f"⚠️ فشل الاتصال. حاول مرة أخرى. ({last_error})"
 
 def summarize(text):
     for m in MODELS:
@@ -145,17 +154,19 @@ h1{font-size:18px;background:linear-gradient(90deg,#10a37f,#7c3aed);-webkit-back
 .m{padding:14px 18px;border-radius:18px;line-height:1.7;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
 .u .m{background:#2f2f2f;border-bottom-left-radius:6px}
 .b .m{background:#1a1a1a;border:1px solid #333;border-bottom-right-radius:6px}
+.m img{max-width:200px;border-radius:10px;margin-top:8px;display:block}
 .tp{display:inline-flex;gap:5px;padding:14px 18px;background:#1a1a1a;border:1px solid #333;border-radius:18px}
 .tp span{width:7px;height:7px;background:#888;border-radius:50%;animation:bo 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.2s}
 .tp span:nth-child(3){animation-delay:.4s}
 @keyframes bo{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
-.ia{padding:16px;background:#0d0d0d;display:flex;gap:10px;border-top:1px solid #333;align-items:center}
+.ia{padding:16px;background:#0d0d0d;display:flex;gap:8px;border-top:1px solid #333;align-items:center}
 .iw{flex:1}
 input{width:100%;padding:16px 20px;border-radius:28px;border:1px solid #333;background:#1e1e1e;color:#ececec;font-size:16px;outline:none}
 input:focus{border-color:#10a37f}
-button.sd{width:52px;height:52px;border-radius:50%;border:none;background:#10a37f;color:white;font-size:20px;cursor:pointer;flex-shrink:0}
+button.sd{width:52px;height:52px;border-radius:50%;border:none;background:#10a37f;color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 button.sd:disabled{opacity:.4}
+button.file{background:#7c3aed}
 .vc{text-align:center;padding:8px;font-size:12px;color:#666;border-top:1px solid #333;background:#171717}
 .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;justify-content:center;align-items:center}
 .mo.on{display:flex}
@@ -177,12 +188,18 @@ button.sd:disabled{opacity:.4}
 <button class="mb" data-m="math" onclick="sw('math')">📐 نسخة الرياضيات</button>
 <button class="mb" data-m="code" onclick="sw('code')">💻 نسخة البرمجة</button>
 <button class="mb" data-m="religion" onclick="sw('religion')">🕌 نسخة دينية</button>
+<button class="mb" data-m="edit" onclick="sw('edit')">✏️ نسخة تعديلات</button>
 <button class="dl" onclick="downloadChat()">💾 تنزيل المحادثة</button>
 <button class="lo" onclick="out()">🚪 تسجيل الخروج</button></div>
 <div id="app"><div class="hd"><button class="hb" onclick="openS()">☰</button>
 <div class="tg"><div class="hl">M</div><h1>Moka.AI</h1></div><div style="width:50px"></div></div>
 <div id="ch"><div class="mw b"><div class="m" id="wm">👋 مرحباً!</div></div></div>
-<form class="ia" id="f"><div class="iw"><input id="i" placeholder="اسأل Moka.AI..." autocomplete="off"></div><button class="sd" id="s">➤</button></form>
+<form class="ia" id="f">
+<input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this)">
+<button type="button" class="sd file" onclick="document.getElementById('fileInput').click()" title="رفع صورة">📎</button>
+<div class="iw"><input id="i" placeholder="اسأل Moka.AI..." autocomplete="off"></div>
+<button type="submit" class="sd" id="s">➤</button>
+</form>
 <div class="vc">👁️ عدد الزوار: <span id="vc">...</span></div></div>
 <div class="mo" id="mo"><div class="md"><h2>📝 تلخيص درس</h2><textarea id="st" placeholder="الصق النص..."></textarea>
 <div class="mbtns"><button class="s" onclick="closeM()">إلغاء</button><button class="p" onclick="doSum()">📝 لخّص</button></div></div></div>
@@ -202,7 +219,7 @@ function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.remo
 function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
 function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
-const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة",religion:"🕌 الدينية"};
+const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة",religion:"🕌 الدينية",edit:"✏️ تعديلات"};
 ch.innerHTML='<div class="mw b"><div class="m">✅ تم التبديل إلى '+names[m]+'</div></div>';closeS()}
 window.onload=()=>{const n=localStorage.getItem("mu");if(n){document.getElementById("un").value=n;show(n)}}
 let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v);document.getElementById("vc").textContent=v;
@@ -212,6 +229,27 @@ f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode,text:t,name:localStorage.getItem("mu")||"?"})});
 try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode})});
 const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove();add("تعذر الاتصال","b")}finally{s.disabled=false;i.focus()}};
+async function handleFile(input){
+  const file=input.files[0];
+  if(!file)return;
+  if(!file.type.startsWith("image/")){alert("الرجاء اختيار صورة");return;}
+  if(file.size>5*1024*1024){alert("حجم الصورة كبير (الحد 5 ميغا)");return;}
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    const base64=e.target.result.split(",")[1];
+    const w=document.createElement("div");w.className="mw u";const m=document.createElement("div");m.className="m";
+    m.textContent="📎 "+file.name;const img=document.createElement("img");img.src=e.target.result;m.appendChild(img);
+    w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
+    const ty=typ();
+    try{
+      const r=await fetch("/analyze_image",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({image:base64,prompt:i.value.trim()||"صف هذه الصورة واقترح تعديلات"})});
+      const d=await r.json();ty.remove();add(d.reply||"تعذر التحليل","b");i.value="";
+    }catch(err){ty.remove();add("تعذر الاتصال","b")}
+    input.value="";
+  };
+  reader.readAsDataURL(file);
+}
 function openM(){document.getElementById("mo").classList.add("on")}
 function closeM(){document.getElementById("mo").classList.remove("on")}
 async function doSum(){const t=document.getElementById("st").value.trim();if(!t){alert("الصق النص");return}closeM();document.getElementById("st").value="";
@@ -221,18 +259,15 @@ try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"app
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
 function downloadChat(){
   const name=localStorage.getItem("mu")||"مستخدم";
-  let text="محادثة Moka.AI - "+name+"\\n"+new Date().toLocaleString("ar-DZ")+"\\n";
-  text+="=============================\\n\\n";
+  let text="محادثة Moka.AI - "+name+"\\n"+new Date().toLocaleString("ar-DZ")+"\\n=============================\\n\\n";
   document.querySelectorAll("#ch .mw").forEach(m=>{
     const isUser=m.classList.contains("u");
     const content=m.querySelector(".m");
-    if(content){text+=(isUser?"👤 "+name: "🤖 Moka.AI")+":\\n"+content.textContent+"\\n\\n";}
+    if(content){text+=(isUser?"👤 "+name:"🤖 Moka.AI")+":\\n"+content.textContent+"\\n\\n";}
   });
   const blob=new Blob([text],{type:"text/plain;charset=utf-8"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="MokaAI_"+name+"_"+Date.now()+".txt";
-  a.click();
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="MokaAI_"+name+"_"+Date.now()+".txt";a.click();
 }
 </script></body></html>"""
 ADMIN_HTML = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
@@ -249,9 +284,11 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 .box h2{font-size:16px;margin-bottom:15px;color:#10a37f}
 .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #222;font-size:13px;gap:10px;align-items:center;flex-wrap:wrap}
 .mode-bar{display:flex;justify-content:space-between;padding:10px;background:#0d0d0d;border-radius:8px;margin-bottom:8px}
-.msg-item{background:#0d0d0d;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}
-.msg-item .meta{color:#666;font-size:11px;margin-bottom:5px}
-.block-btn{background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px}
+.msg-item{background:#0d0d0d;border-radius:8px;padding:12px;margin-bottom:10px;border-right:3px solid #10a37f}
+.msg-item .meta{color:#888;font-size:11px;margin-bottom:8px;display:flex;gap:10px;flex-wrap:wrap}
+.msg-item .text{color:#ececec;font-size:14px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word}
+.block-btn{background:#dc2626;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;display:inline-block}
+.unblock-btn{background:#10a37f;color:white;border:none;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;display:inline-block;margin-right:5px}
 </style></head><body>
 <h1>📊 لوحة تحكم Moka.AI</h1>
 <div class="grid">
@@ -265,14 +302,24 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <div class="mode-bar"><span>📐 رياضيات</span><b>{{s.modes.math}}</b></div>
 <div class="mode-bar"><span>💻 برمجة</span><b>{{s.modes.code}}</b></div>
 <div class="mode-bar"><span>🕌 دينية</span><b>{{s.modes.religion}}</b></div>
+<div class="mode-bar"><span>✏️ تعديلات</span><b>{{s.modes.edit}}</b></div>
 </div>
-<div class="box"><h2>💬 كل المحادثات</h2>
+<div class="box"><h2>💬 كل الرسائل (آخر 50)</h2>
+{% if s.messages_log %}
 {% for m in s.messages_log[-50:]|reverse %}
 <div class="msg-item">
-<div class="meta">👤 {{m.name}} | 📱 {{m.ip}} | 🧠 {{m.mode}} | 🕐 {{m.time}}</div>
-<div>{{m.text}}</div>
+<div class="meta">
+<span>👤 <b>{{m.name}}</b></span>
+<span>📱 {{m.ip}}</span>
+<span>🧠 {{m.mode}}</span>
+<span>🕐 {{m.time}}</span>
+</div>
+<div class="text">💬 {{m.text}}</div>
 </div>
 {% endfor %}
+{% else %}
+<p style="color:#888;text-align:center;">لا توجد رسائل بعد.</p>
+{% endif %}
 </div>
 <div class="box"><h2>🕐 آخر 20 زيارة</h2>
 {% for r in s.recent[-20:]|reverse %}
@@ -282,6 +329,7 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <span style="color:#666">{{r.ip}}</span>
 <span style="color:#666">{{r.time}}</span>
 <a href="/block/{{r.ip}}?key={{key}}" class="block-btn">🚫</a>
+<a href="/unblock/{{r.ip}}?key={{key}}" class="unblock-btn">✅</a>
 </div>
 {% endfor %}
 </div>
@@ -293,6 +341,7 @@ h1{text-align:center;margin-bottom:20px;background:linear-gradient(90deg,#10a37f
 <span style="color:#666">{{d.ip}}</span>
 <span style="color:#666">{{d.time}}</span>
 <a href="/block/{{d.ip}}?key={{key}}" class="block-btn">🚫</a>
+<a href="/unblock/{{d.ip}}?key={{key}}" class="unblock-btn">✅</a>
 </div>
 {% endfor %}
 </div>
@@ -323,6 +372,12 @@ def block_ip(ip):
     BLOCKED_IPS.add(ip)
     return f"✅ تم حظر {ip}. <a href='/admin?key={ADMIN_KEY}'>العودة</a>"
 
+@app.route("/unblock/<ip>")
+def unblock_ip(ip):
+    if request.args.get("key") != ADMIN_KEY: return "🔒", 403
+    BLOCKED_IPS.discard(ip)
+    return f"✅ تم إلغاء حظر {ip}. <a href='/admin?key={ADMIN_KEY}'>العودة</a>"
+
 @app.route("/track", methods=["POST"])
 def track():
     try:
@@ -336,7 +391,7 @@ def track():
         device = "غير معروف"; browser = "غير معروف"
         if "Android" in ua: device = "Android"
         elif "iPhone" in ua or "iPad" in ua: device = "iPhone/iPad"
-        elif "Windows" in ua: device = "Windows"
+        elif "Windows" in ua: device = "Windows
         elif "Mac" in ua: device = "Mac"
         if "Chrome" in ua: browser = "Chrome"
         elif "Firefox" in ua: browser = "Firefox"
@@ -379,6 +434,34 @@ def summ():
         d = request.get_json(silent=True) or {}
         return jsonify({"summary": summarize(d.get("text",""))})
     except Exception as e: return jsonify({"summary":f"خطأ: {str(e)}"}),500
+
+@app.post("/analyze_image")
+def analyze_image():
+    try:
+        d = request.get_json(silent=True) or {}
+        img_b64 = d.get("image", "")
+        prompt = d.get("prompt", "صف هذه الصورة")
+        if not img_b64:
+            return jsonify({"reply": "لم يتم استلام صورة."})
+        if not GROQ_API_KEY:
+            return jsonify({"reply": "⚠️ مفتاح API غير موجود."})
+        messages = [{"role": "user", "content": [
+            {"type": "text", "text": prompt + "\n\nأجب بالعربية بوصف دقيق ومفيد."},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"}}
+        ]}]
+        payload = {"model": VISION_MODEL, "messages": messages, "temperature": 0.7, "max_tokens": 1500}
+        req = urllib.request.Request(GROQ_URL,
+            data=json.dumps(payload).encode(),
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            method="POST")
+        with urllib.request.urlopen(req, timeout=60) as r:
+            data = json.loads(r.read().decode())
+        return jsonify({"reply": data["choices"][0]["message"]["content"]})
+    except urllib.error.HTTPError as e:
+        err = e.read().decode()
+        return jsonify({"reply": f"⚠️ خطأ {e.code}: {err[:300]}"})
+    except Exception as e:
+        return jsonify({"reply": f"⚠️ خطأ: {str(e)}"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
