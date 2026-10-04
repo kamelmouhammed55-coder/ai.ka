@@ -175,3 +175,21 @@ def summ():
     except Exception as e: return jsonify({"summary":f"خطأ: {str(e)}"}),500
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+@app.post("/chat")
+def chat():
+    try:
+        d = request.get_json(silent=True) or {}
+        return jsonify({"reply": ask_ai(d.get("message", ""), d.get("session_id", "default"), d.get("mode", "general"))})
+    except Exception as e:
+        return jsonify({"reply": f"خطأ: {str(e)}"}), 500
+
+@app.post("/summarize")
+def summ():
+    try:
+        d = request.get_json(silent=True) or {}
+        return jsonify({"summary": summarize(d.get("text", ""))})
+    except Exception as e:
+        return jsonify({"summary": f"خطأ: {str(e)}"}), 500
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
