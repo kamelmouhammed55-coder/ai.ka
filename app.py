@@ -1,6 +1,4 @@
-# Moka.AI v12.0 - مساعد ذكي عربي
-# المطور: محمد كامل
-
+# Moka.AI v13.0 - المطور: محمد كامل
 from flask import Flask, request, jsonify, render_template_string
 import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
@@ -47,6 +45,15 @@ def save_stats(s):
     except Exception:
         pass
 
+def clean_reply(text):
+    """تنظيف الردود من LaTeX و markdown"""
+    text = text.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
+    text = text.replace("\\sqrt", "√").replace("\\frac", "").replace("\\quad", " ")
+    text = text.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
+    text = text.replace("###", "").replace("##", "").replace("**", "")
+    text = text.replace("\\begin", "").replace("\\end", "").replace("\\left", "").replace("\\right", "")
+    return text
+
 def get_date_context():
     today = _dt.datetime.now()
     months_ar = ["يناير","فبراير","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
@@ -56,19 +63,44 @@ def get_date_context():
 - تاريخ إنشاء التطبيق: 4 أكتوبر 2026
 - مطورك: محمد كامل
 - إذا سُئلت "متى صنعت؟" أجب: "صنعني محمد كامل يوم 4 أكتوبر 2026."
-- لا تقل أنك GPT أو OpenAI أبداً.
+- لا تقل أبداً أنك GPT أو OpenAI.
 
-معلومات المباريات:
-- ريال مدريد (1902)، برشلونة (1899)، مانشستر يونايتد (1878)، ليفربول (1892)، بايرن ميونخ (1900)، يوفنتوس (1897)، منتخب الجزائر (1962)، الأهلي المصري (1907)، الزمالك (1911).
-- كأس العالم 2026 في أمريكا وكندا والمكسيك.
-- اذكر دائماً: الفريقين، التاريخ، البطولة."""
+معلومات الفرق والمنتخبات:
+- اتحاد الجزائر (USMA): الأحمر والأسود (تأسس 1937).
+- مولودية الجزائر (MCA): الأحمر والأخضر (1921).
+- شباب بلوزداد (CRB): الأحمر والأبيض (1962).
+- وفاق سطيف (ESS): الأسود والأبيض (1958).
+- ريال مدريد: الأبيض والذهبي (1902).
+- برشلونة: الأزرق والأحمر والقرمزي (1899).
+- مانشستر يونايتد: الأحمر والأبيض والأسود (1878).
+- ليفربول: الأحمر والأبيض (1892).
+- مانشستر سيتي: الأزرق السماوي والأبيض (1880).
+- بايرن ميونخ: الأحمر والأبيض والأزرق (1900).
+- يوفنتوس: الأسود والأبيض (1897).
+- إنتر ميلان: الأزرق والأسود (1908).
+- ميلان: الأحمر والأسود (1899).
+- الأهلي المصري: الأحمر والأبيض (1907).
+- الزمالك: الأبيض والأحمر (1911).
+- منتخب الجزائر: الأخضر والأبيض والأحمر (1962).
+- منتخب البرازيل: الأصفر والأخضر والأزرق (1914).
+- منتخب الأرجنتين: الأزرق السماوي والأبيض (1893).
+- منتخب فرنسا: الأزرق والأبيض والأحمر (1904).
+- منتخب المغرب: الأحمر والأخضر (1955).
+- منتخب تونس: الأحمر والأبيض (1957).
+
+البطولات:
+- كأس العالم 2026: أمريكا، كندا، المكسيك (جوان-جويلية 2026).
+- كأس أمم أفريقيا 2025: المغرب.
+- دوري أبطال أوروبا: سنوي.
+- الدوري الجزائري للمحترفين.
+- الدوري الإنجليزي، الإسباني، الإيطالي، الألماني، الفرنسي."""
 
 CURRICULUM = """
 المنهاج الجزائري 2026-2027:
 - الابتدائي: الإنجليزية من السنة الثالثة.
 - المتوسط: معامل الرياضيات 4 في الرابعة متوسط.
 - الثانوي: جذع آداب (31 ساعة)، علوم (32 ساعة).
-- شهادات: BEM، BAC.
+- الشهادات: BEM، BAC.
 """
 
 FORBIDDEN = ["جنس","sex","porn","إباحي","عاري","شهوة","زنى","زنا","خلاعة","فاحشة"]
@@ -98,19 +130,21 @@ def search_web(query):
 DATE_CONTEXT = get_date_context()
 
 NO_LATEX = """
-قواعد:
+قواعد صارمة:
 1. اكتب بالعربية الفصحى المبسطة.
-2. ممنوع استخدام LaTeX أو رموز مثل \\sqrt \\frac \\quad \\text \\displaystyle.
-3. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3".
-4. استخدم الرموز البسيطة: + - × ÷ = √ ² ³.
-5. نظّم الإجابة بعناوين ونقاط.
+2. ممنوع استخدام LaTeX أو رموز مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle، \\(، \\)، \\[، \\].
+3. ممنوع استخدام ** أو ## أو ### (لا تنسيق markdown).
+4. للعناوين: اكتب العنوان في سطر منفصل.
+5. للنقاط: استخدم • أو - في بداية السطر.
+6. اكتب الجذور: "الجذر التربيعي لـ 9 يساوي 3".
+7. استخدم الرموز: + - × ÷ = √ ² ³.
 """
 
 PROMPTS = {
     "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
     "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة بالعربية البسيطة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
     "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
-    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
+    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
     "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}",
 }
 
@@ -125,7 +159,7 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if is_admin: sp += "\n\nأنت تتحدث مع المطور محمد كامل. نفذ أوامره."
     if key not in convs:
         convs[key] = [{"role": "system", "content": sp}]
-    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب"]
+    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان"]
     if any(k in msg for k in sports):
         wi = search_web(msg)
         if wi:
@@ -143,10 +177,7 @@ def ask_ai(msg, sid, mode, is_admin=False):
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode())
-            reply = data["choices"][0]["message"]["content"]
-            reply = reply.replace("\\(", "").replace("\\)", "").replace("\\[", "").replace("\\]", "")
-            reply = reply.replace("\\sqrt", "√").replace("\\frac", "").replace("\\quad", " ")
-            reply = reply.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
+            reply = clean_reply(data["choices"][0]["message"]["content"])
             convs[key].append({"role": "assistant", "content": reply})
             return reply
         except Exception as e:
@@ -163,7 +194,7 @@ def summarize(text):
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
-                return json.loads(r.read().decode())["choices"][0]["message"]["content"]
+                return clean_reply(json.loads(r.read().decode())["choices"][0]["message"]["content"])
         except Exception:
             continue
     return "⚠️ تعذر التلخيص."
@@ -179,7 +210,7 @@ def generate_lesson_summary(level, branch, subject, lesson):
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
-                return json.loads(r.read().decode())["choices"][0]["message"]["content"]
+                return clean_reply(json.loads(r.read().decode())["choices"][0]["message"]["content"])
         except Exception:
             continue
     return "⚠️ تعذر إنشاء الملخص."
@@ -363,7 +394,6 @@ let lastReply="";
 const ch=document.getElementById("ch"),i=document.getElementById("i"),f=document.getElementById("f"),s=document.getElementById("s");
 const sid="u_"+Math.random().toString(36).substring(2,10);
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"visit"})});
-
 window.addEventListener("DOMContentLoaded",()=>{
   const t=localStorage.getItem("moka_theme")||"light";
   document.getElementById("themeBtn").textContent = t==="dark"?"☀️":"🌙";
@@ -440,8 +470,8 @@ async function doSum(){const t=document.getElementById("st").value.trim();if(!t)
 add("📝 لخّص...","u");const ty=typ();
 try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
-function openSummaries(){document.getElem
-entById("summariesModal").classList.add("on")}
+function openSummaries(){document.getEleme
+ntById("summariesModal").classList.add("on")}
 function closeSummaries(){document.getElementById("summariesModal").classList.remove("on")}
 function updateBranches(){
   const level=document.getElementById("s_level").value;
@@ -544,7 +574,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const C='moka-v12';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v13';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -566,9 +596,9 @@ def do_register():
         u = d.get("username", "").strip().lower()
         p = d.get("password", "").strip()
         if not u or not p: return jsonify({"ok": False, "msg": "املأ الحقول"})
-        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير"})
-        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة"})
-        if u == "kamel": return jsonify({"ok": False, "msg": "الاسم محجوز"})
+        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير (3 أحرف على الأقل)"})
+        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة (4 أحرف على الأقل)"})
+        if u == "kamel": return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
         users = load_users()
         if u in users: return jsonify({"ok": False, "msg": "الاسم موجود مسبقاً"})
         users[u] = {"password": p, "role": "user", "name": u}
