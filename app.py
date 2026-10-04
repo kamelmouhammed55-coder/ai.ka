@@ -6,10 +6,21 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
+CURRICULUM = """
+معلومات المنهاج الجزائري 2026-2027:
+- الابتدائي: الإنجليزية من السنة الثالثة (ساعتان أسبوعياً). الرياضيات 5 ساعات.
+- المتوسط: معامل الرياضيات 4 في الرابعة متوسط، العربية 5، الفرنسية 3، الإنجليزية 3.
+- الثانوي: جذع مشترك آداب (31 ساعة)، علوم وتكنولوجيا (32 ساعة).
+- شعبة الرياضيات (3 ثانوي): رياضيات 10 ساعات (معامل 8)، فيزياء (معامل 6)، إعلام آلي (معامل 3).
+- شعبة العلوم التجريبية: علوم الطبيعة 6 ساعات (معامل 6)، رياضيات 5 ساعات.
+- شعبة الهندسة: تكنولوجيا 8 ساعات (معامل 7)، رياضيات (معامل 5).
+"""
+
 PROMPTS = {
-    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بوضوح عن أي سؤال. لا تقل أنك GPT أو OpenAI.",
-    "math": "أنت Moka.AI، خبير رياضيات من تطوير محمد كامل. حل المسائل خطوة بخطوة مع الشرح.",
-    "code": "أنت Moka.AI، خبير برمجة من تطوير محمد كامل. اكتب واشرح الأكواد بوضوح.",
+    "general": "أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل. أجب بالعربية الفصحى المبسطة، بأسلوب واضح ومفهوم لأي شخص. لا تستخدم رموزاً رياضية معقدة أو LaTeX. لا تقل أنك GPT أو OpenAI.\n\n" + CURRICULUM,
+    "math": "أنت Moka.AI، خبير رياضيات من تطوير محمد كامل. اشرح المسائل خطوة بخطوة بلغة عربية بسيطة ومفهومة. لا تستخدم رموز LaTeX. اكتب المعادلات بشكل عادي (مثل: 2x + 5 = 15).\n\n" + CURRICULUM,
+    "code": "أنت Moka.AI، خبير برمجة من تطوير محمد كامل. اكتب الكود بشكل مرتب، واشرحه بجمل عربية بسيطة. لا تقل أنك GPT أو OpenAI.",
+    "religion": "أنت Moka.AI، مساعد متخصص في العلوم الإسلامية. أجب عن الأسئلة الدينية بالعربية الفصحى، بالاستناد إلى القرآن الكريم والسنة النبوية. اذكر الأدلة عند الإمكان. كن دقيقاً ومحترماً.",
 }
 
 convs = {}
@@ -17,6 +28,8 @@ convs = {}
 def ask_ai(msg, sid, mode):
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود."
+    if not GROQ_API_KEY.startswith("gsk_"):
+        return "⚠️ المفتاح غير صحيح."
     key = f"{sid}_{mode}"
     if key not in convs:
         convs[key] = [{"role": "system", "content": PROMPTS.get(mode, PROMPTS["general"])}]
@@ -44,7 +57,7 @@ def summarize(text):
         try:
             req = urllib.request.Request(GROQ_URL,
                 data=json.dumps({"model": m, "messages": [
-                    {"role": "system", "content": "لخص النص التالي في نقاط واضحة بالعربية."},
+                    {"role": "system", "content": "لخص النص التالي في نقاط واضحة ومفهومة بالعربية."},
                     {"role": "user", "content": text}], "temperature": 0.5, "max_tokens": 1024}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json",
                          "User-Agent": "Mozilla/5.0"},
@@ -122,6 +135,7 @@ button.sd:disabled{opacity:.4}
 <button class="mb on" data-m="general" onclick="sw('general')">🧠 النسخة العامة</button>
 <button class="mb" data-m="math" onclick="sw('math')">📐 نسخة الرياضيات</button>
 <button class="mb" data-m="code" onclick="sw('code')">💻 نسخة البرمجة</button>
+<button class="mb" data-m="religion" onclick="sw('religion')">🕌 نسخة دينية</button>
 <button class="lo" onclick="out()">🚪 تسجيل الخروج</button></div>
 <div id="app"><div class="hd"><button class="hb" onclick="openS()">☰</button>
 <div class="tg"><div class="hl">M</div><h1>Moka.AI</h1></div><div style="width:50px"></div></div>
@@ -140,7 +154,7 @@ function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.remo
 function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
 function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
-const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة"};
+const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة",religion:"🕌 الدينية"};
 ch.innerHTML='<div class="mw b"><div class="m">✅ تم التبديل إلى '+names[m]+'</div></div>';closeS()}
 window.onload=()=>{const n=localStorage.getItem("mu");if(n){document.getElementById("un").value=n;show(n)}}
 let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v);document.getElementById("vc").textContent=v;
@@ -173,23 +187,5 @@ def summ():
         d = request.get_json(silent=True) or {}
         return jsonify({"summary": summarize(d.get("text",""))})
     except Exception as e: return jsonify({"summary":f"خطأ: {str(e)}"}),500
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-@app.post("/chat")
-def chat():
-    try:
-        d = request.get_json(silent=True) or {}
-        return jsonify({"reply": ask_ai(d.get("message", ""), d.get("session_id", "default"), d.get("mode", "general"))})
-    except Exception as e:
-        return jsonify({"reply": f"خطأ: {str(e)}"}), 500
-
-@app.post("/summarize")
-def summ():
-    try:
-        d = request.get_json(silent=True) or {}
-        return jsonify({"summary": summarize(d.get("text", ""))})
-    except Exception as e:
-        return jsonify({"summary": f"خطأ: {str(e)}"}), 500
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
