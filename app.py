@@ -22,9 +22,6 @@ SYSTEM_PROMPT = """أنت Moka.AI، مساعد ذكي عربي متطور.
 - الاسم الكامل: محمد كامل
 - العمر: 15 سنة
 - تاريخ الميلاد: 16 أفريل 2011
-- إذا سألك المستخدم "كم عمري؟" قل: "عمرك 15 سنة."
-- إذا سألك "متى ولدت؟" قل: "ولدت في 16 أفريل 2011."
-- إذا سألك "ما اسمي؟" قل: "اسمك محمد كامل."
 
 أجب بوضوح ودقة وبأسلوب ودود. استخدم العربية الفصحى المبسطة."""
 
@@ -32,7 +29,7 @@ conversations = {}
 
 def ask_ai(user_message, session_id="default", custom_prompt=None):
     if not GROQ_API_KEY:
-        return "⚠️ مفتاح API غير موجود. الرجاء إضافته في Render."
+        return "⚠️ مفتاح API غير موجود."
     if not GROQ_API_KEY.startswith("gsk_"):
         return "⚠️ المفتاح غير صحيح."
 
@@ -96,7 +93,7 @@ def summarize_text(text):
                 headers={
                     "Authorization": f"Bearer {GROQ_API_KEY}",
                     "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "User-Agent": "Mozilla/5.0",
                 },
                 method="POST",
             )
@@ -116,6 +113,9 @@ HTML = r"""
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Moka.AI</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#10a37f">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+">
 <style>
   :root {
     --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
@@ -129,8 +129,6 @@ HTML = r"""
     height: 100vh; overflow: hidden;
     display: flex; flex-direction: column;
   }
-
-  /* ====== شاشة تسجيل الدخول ====== */
   #loginScreen {
     position: fixed; top: 0; left: 0;
     width: 100%; height: 100%;
@@ -140,17 +138,13 @@ HTML = r"""
     z-index: 999; padding: 20px;
   }
   #loginScreen.hidden { display: none; }
-  .login-logo {
-    width: 100px; height: 100px; margin-bottom: 20px;
-  }
+  .login-logo { width: 100px; height: 100px; margin-bottom: 20px; }
   .login-title {
     font-size: 32px; font-weight: bold; margin-bottom: 8px;
     background: linear-gradient(90deg, var(--accent), #7c3aed);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .login-subtitle {
-    font-size: 14px; color: #888; margin-bottom: 30px;
-  }
+  .login-subtitle { font-size: 14px; color: #888; margin-bottom: 30px; }
   .login-box {
     width: 100%; max-width: 360px;
     background: #1a1a1a; border: 1px solid #333;
@@ -167,7 +161,6 @@ HTML = r"""
     font-size: 16px; outline: none;
     margin-bottom: 16px;
   }
-  .login-box input:focus { border-color: var(--accent); }
   .login-btn {
     width: 100%; padding: 14px;
     border-radius: 12px; border: none;
@@ -175,13 +168,8 @@ HTML = r"""
     color: white; font-size: 16px; font-weight: bold;
     cursor: pointer;
   }
-  .login-btn:active { transform: scale(0.98); }
-  .login-footer {
-    text-align: center; margin-top: 20px;
-    font-size: 12px; color: #555;
-  }
+  .login-footer { text-align: center; margin-top: 20px; font-size: 12px; color: #555; }
 
-  /* ====== التطبيق ====== */
   #appScreen { display: none; height: 100vh; flex-direction: column; }
   #appScreen.active { display: flex; }
 
@@ -204,8 +192,6 @@ HTML = r"""
     color: #aaa; padding: 6px 10px; border-radius: 8px;
     cursor: pointer; font-size: 12px;
   }
-  .header-btn:hover { background: #222; }
-
   #chat {
     flex: 1; overflow-y: auto; padding: 24px 16px;
     display: flex; flex-direction: column; gap: 18px;
@@ -308,7 +294,6 @@ HTML = r"""
 </head>
 <body>
 
-<!-- ====== شاشة تسجيل الدخول ====== -->
 <div id="loginScreen">
   <svg class="login-logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -325,12 +310,11 @@ HTML = r"""
   <div class="login-box">
     <label>👤 اسمك</label>
     <input id="usernameInput" autocomplete="off" placeholder="اكتب اسمك هنا...">
-    <button class="login-btn" onclick="login()">🚀 دخول</button>
+    <button class="login-btn" onclick="loginLocal()">🚀 دخول</button>
   </div>
   <div class="login-footer">Moka.AI © 2026</div>
 </div>
 
-<!-- ====== التطبيق ====== -->
 <div id="appScreen">
   <div class="header">
     <div class="header-btns">
@@ -368,7 +352,6 @@ HTML = r"""
   </div>
 </div>
 
-<!-- نافذة التلخيص -->
 <div class="modal-overlay" id="summaryModal">
   <div class="modal">
     <h2>📝 تلخيص درس</h2>
@@ -382,31 +365,32 @@ HTML = r"""
 </div>
 
 <script>
-  // ====== تسجيل الدخول ======
   const loginScreen = document.getElementById("loginScreen");
   const appScreen = document.getElementById("appScreen");
   const usernameInput = document.getElementById("usernameInput");
 
-  function login() {
-    const name = usernameInput.value.trim();
-    if (!name) { alert("الرجاء كتابة اسمك"); return; }
-    localStorage.setItem("moka_user", name);
+  function showApp(name) {
     loginScreen.classList.add("hidden");
     appScreen.classList.add("active");
     document.getElementById("welcomeMsg").innerHTML = 
-      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء، أو اضغط <b>📝 تلخيص</b> لتلخيص أي درس.";
+      "👋 مرحباً <b>" + name + "</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء!";
   }
 
-  // التحقق من وجود مستخدم محفوظ
+  function loginLocal() {
+    const name = usernameInput.value.trim();
+    if (!name) { alert("الرجاء كتابة اسمك"); return; }
+    localStorage.setItem("moka_user", name);
+    showApp(name);
+  }
+
   window.addEventListener("load", () => {
     const saved = localStorage.getItem("moka_user");
     if (saved) {
       usernameInput.value = saved;
-      login();
+      showApp(saved);
     }
   });
 
-  // ====== عدّاد الزوار ======
   let count = localStorage.getItem('moka_visits');
   if (!count) { count = 1; } else { count = parseInt(count) + 1; }
   localStorage.setItem('moka_visits', count);
@@ -516,9 +500,32 @@ HTML = r"""
 </html>
 """
 
-@app.get("/")
+@app.route("/")
 def home():
     return render_template_string(HTML)
+
+@app.route("/manifest.json")
+def manifest():
+    return {
+        "name": "Moka.AI - مساعدك الذكي",
+        "short_name": "Moka.AI",
+        "description": "مساعد ذكي عربي من تطوير محمد كامل",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#0d0d0d",
+        "theme_color": "#10a37f",
+        "orientation": "portrait",
+        "lang": "ar",
+        "dir": "rtl",
+        "icons": [
+            {
+                "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMxMGEzN2Y7c3RvcC1vcGFjaXR5OjEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM3YzNhZWQ7c3RvcC1vcGFjaXR5OjEiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cG9seWdvbiBwb2ludHM9IjUwLDUgOTAsMjcuNSA5MCw3Mi41IDUwLDk1IDEwLDcyLjUgMTAsMjcuNSIgZmlsbD0idXJsKCNnKSIvPjx0ZXh0IHg9IjUwIiB5PSI2NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjQ1IiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk08L3RleHQ+PC9zdmc+",
+                "sizes": "192x192",
+                "type": "image/svg+xml",
+                "purpose": "any maskable"
+            }
+        ]
+    }
 
 @app.post("/chat")
 def chat_api():
@@ -526,22 +533,4 @@ def chat_api():
         data = request.get_json(silent=True) or {}
         message = data.get("message", "")
         session_id = data.get("session_id", "default")
-        reply = ask_ai(message, session_id)
-        return jsonify({"reply": reply})
-    except Exception as e:
-        return jsonify({"reply": f"حدث خطأ: {str(e)}"}), 500
-
-@app.post("/summarize")
-def summarize_api():
-    try:
-        data = request.get_json(silent=True) or {}
-        text = data.get("text", "")
-        if not text:
-            return jsonify({"summary": "الرجاء إرسال نص للتلخيص."})
-        summary = summarize_text(text)
-        return jsonify({"summary": summary})
-    except Exception as e:
-        return jsonify({"summary": f"حدث خطأ: {str(e)}"}), 500
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+        reply = ask_ai(me
