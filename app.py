@@ -7,33 +7,39 @@ app = Flask(__name__)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# النماذج الحديثة (2026)
 MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
     "qwen/qwen3.6-27b",
 ]
 
-# ====== تعليمات النظام (الهوية) ======
+# ====== التعليمات الشخصية ======
 SYSTEM_PROMPT = """أنت Moka.AI، مساعد ذكي عربي متطور.
-- صانعك ومطورك هو "محمد كامل".
-- لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
-- إذا سُئلت عن هويتك، قل: "أنا Moka.AI، مساعد ذكي من تطوير محمد كامل."
-- أجب بوضوح ودقة وبأسلوب ودود.
-- يمكنك حل المسائل الرياضية، البرمجة، الترجمة، وكل المواضيع.
-- استخدم العربية الفصحى المبسطة."""
+صانعك ومطورك هو "محمد كامل".
+لا تقل أبداً أنك GPT أو OpenAI أو أي شركة أخرى.
+إذا سُئلت عن هويتك، قل: "أنا Moka.AI، مساعد ذكي من تطوير محمد كامل."
+
+معلومات عن المستخدم (محمد كامل):
+- الاسم الكامل: محمد كامل
+- العمر: 15 سنة
+- تاريخ الميلاد: 16 أفريل 2011
+- إذا سألك المستخدم "كم عمري؟" قل: "عمرك 15 سنة."
+- إذا سألك "متى ولدت؟" قل: "ولدت في 16 أفريل 2011."
+- إذا سألك "ما اسمي؟" قل: "اسمك محمد كامل."
+
+أجب بوضوح ودقة وبأسلوب ودود. استخدم العربية الفصحى المبسطة."""
 
 conversations = {}
 
-def ask_ai(user_message, session_id="default"):
+def ask_ai(user_message, session_id="default", custom_prompt=None):
     if not GROQ_API_KEY:
         return "⚠️ مفتاح API غير موجود. الرجاء إضافته في Render."
     if not GROQ_API_KEY.startswith("gsk_"):
-        return "⚠️ المفتاح غير صحيح. يجب أن يبدأ بـ gsk_."
+        return "⚠️ المفتاح غير صحيح."
 
     if session_id not in conversations:
         conversations[session_id] = [
-            {"role": "system", "content": SYSTEM_PROMPT}
+            {"role": "system", "content": custom_prompt or SYSTEM_PROMPT}
         ]
 
     conversations[session_id].append({"role": "user", "content": user_message})
@@ -66,14 +72,49 @@ def ask_ai(user_message, session_id="default"):
             conversations[session_id].append({"role": "assistant", "content": reply})
             return reply
         except urllib.error.HTTPError as e:
-            error_body = e.read().decode("utf-8")
-            last_error = f"خطأ {e.code} في النموذج {model_name}: {error_body}"
+            last_error = f"خطأ {e.code} في {model_name}"
             continue
         except Exception as e:
-            last_error = f"خطأ: {str(e)}"
+            last_error = str(e)
             continue
 
-    return f"⚠️ فشلت جميع النماذج.\nآخر خطأ: {last_error}"
+    return f"⚠️ فشلت جميع النماذج: {last_error}"
+
+
+def summarize_text(text):
+    """تلخيص نص معين"""
+    if not GROQ_API_KEY:
+        return "⚠️ مفتاح API غير موجود."
+    
+    messages = [
+        {"role": "system", "content": "أنت مساعد متخصص في تلخيص الدروس. لخص النص التالي في نقاط واضحة ومفيدة بالعربية."},
+        {"role": "user", "content": f"لخص هذا الدرس:\n\n{text}"}
+    ]
+    
+    for model_name in MODELS:
+        payload = {
+            "model": model_name,
+            "messages": messages,
+            "temperature": 0.5,
+            "max_tokens": 1024,
+        }
+        try:
+            req = urllib.request.Request(
+                GROQ_URL,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            return data["choices"][0]["message"]["content"]
+        except Exception:
+            continue
+    return "⚠️ تعذر التلخيص حالياً."
 
 
 # ====== الواجهة ======
@@ -83,7 +124,7 @@ HTML = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Moka.AI - مساعدك الذكي</title>
+<title>Moka.AI</title>
 <style>
   :root {
     --bg: #0d0d0d; --sidebar: #171717; --input-bg: #1e1e1e;
@@ -116,11 +157,13 @@ HTML = r"""
     background: linear-gradient(90deg, var(--accent), #7c3aed);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-  .clear-btn {
+  .header-btns { display: flex; gap: 6px; }
+  .header-btn {
     background: transparent; border: 1px solid var(--border);
     color: #aaa; padding: 6px 10px; border-radius: 8px;
     cursor: pointer; font-size: 12px;
   }
+  .header-btn:hover { background: #222; }
   #chat {
     flex: 1; overflow-y: auto; padding: 24px 16px;
     display: flex; flex-direction: column; gap: 18px;
@@ -184,7 +227,6 @@ HTML = r"""
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
-  button.send:active { transform: scale(0.92); }
   button.send:disabled { opacity: 0.4; }
   #chat::-webkit-scrollbar { width: 6px; }
   #chat::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
@@ -193,20 +235,51 @@ HTML = r"""
     color: #666; border-top: 1px solid var(--border);
     background: var(--sidebar);
   }
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%; background: rgba(0,0,0,0.7);
+    z-index: 1000; justify-content: center; align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #1a1a1a; border: 1px solid #333; border-radius: 16px;
+    padding: 20px; width: 90%; max-width: 500px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 4px; }
+  .modal textarea {
+    width: 100%; height: 200px; padding: 14px;
+    border-radius: 12px; border: 1px solid #333;
+    background: #0d0d0d; color: #ececec;
+    font-family: inherit; font-size: 14px; resize: vertical;
+    outline: none;
+  }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-btn {
+    padding: 10px 20px; border-radius: 10px;
+    border: none; cursor: pointer; font-size: 14px;
+  }
+  .modal-btn.primary { background: var(--accent); color: white; }
+  .modal-btn.secondary { background: #333; color: #ccc; }
 </style>
 </head>
 <body>
 <div class="header">
-  <button class="clear-btn" onclick="clearChat()">🗑️ مسح</button>
+  <div class="header-btns">
+    <button class="header-btn" onclick="clearChat()">🗑️</button>
+    <button class="header-btn" onclick="openSummary()">📝 تلخيص</button>
+  </div>
   <div class="title-group">
     <div class="logo">🤖</div>
     <h1>Moka.AI</h1>
   </div>
-  <div style="width: 60px;"></div>
+  <div style="width: 90px;"></div>
 </div>
 <div id="chat">
   <div class="msg-wrapper bot">
-    <div class="msg">👋 مرحباً! أنا <b>Moka.AI</b>، مساعدك الذكي من تطوير <b>محمد كامل</b>. اسألني أي شيء!</div>
+    <div class="msg">👋 مرحباً <b>محمد كامل</b>! أنا <b>Moka.AI</b>، مساعدك الذكي. اسألني أي شيء، أو اضغط <b>📝 تلخيص</b> لتلخيص أي درس.</div>
   </div>
 </div>
 <form class="input-area" id="form">
@@ -219,7 +292,21 @@ HTML = r"""
   👁️ عدد الزوار: <span id="visitCount">...</span>
 </div>
 
+<!-- نافذة التلخيص -->
+<div class="modal-overlay" id="summaryModal">
+  <div class="modal">
+    <h2>📝 تلخيص درس</h2>
+    <p style="font-size:13px;color:#888;">الصق نص الدرس هنا وسيقوم Moka.AI بتلخيصه.</p>
+    <textarea id="summaryText" placeholder="الصق نص الدرس هنا..."></textarea>
+    <div class="modal-btns">
+      <button class="modal-btn secondary" onclick="closeSummary()">إلغاء</button>
+      <button class="modal-btn primary" onclick="doSummary()">📝 لخّص</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  // ====== عدّاد الزوار ======
   let count = localStorage.getItem('moka_visits');
   if (!count) { count = 1; } else { count = parseInt(count) + 1; }
   localStorage.setItem('moka_visits', count);
@@ -270,6 +357,37 @@ HTML = r"""
     chat.innerHTML = '<div class="msg-wrapper bot"><div class="msg">👋 تم مسح المحادثة.</div></div>';
   }
 
+  // ====== التلخيص ======
+  function openSummary() {
+    document.getElementById("summaryModal").classList.add("active");
+    document.getElementById("summaryText").focus();
+  }
+  function closeSummary() {
+    document.getElementById("summaryModal").classList.remove("active");
+  }
+  async function doSummary() {
+    const text = document.getElementById("summaryText").value.trim();
+    if (!text) { alert("الرجاء لصق نص الدرس أولاً"); return; }
+    closeSummary();
+    document.getElementById("summaryText").value = "";
+    addMessage("📝 لخّص هذا الدرس:\n" + text.substring(0, 100) + (text.length > 100 ? "..." : ""), "user");
+    const typing = addTyping();
+    try {
+      const r = await fetch("/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text })
+      });
+      const data = await r.json();
+      typing.remove();
+      addMessage(data.summary || "حدث خطأ.", "bot");
+    } catch (err) {
+      typing.remove();
+      addMessage("تعذر التلخيص.", "bot");
+    }
+  }
+
+  // ====== الشات ======
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = input.value.trim();
@@ -314,6 +432,18 @@ def chat_api():
         return jsonify({"reply": reply})
     except Exception as e:
         return jsonify({"reply": f"حدث خطأ: {str(e)}"}), 500
+
+@app.post("/summarize")
+def summarize_api():
+    try:
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "")
+        if not text:
+            return jsonify({"summary": "الرجاء إرسال نص للتلخيص."})
+        summary = summarize_text(text)
+        return jsonify({"summary": summary})
+    except Exception as e:
+        return jsonify({"summary": f"حدث خطأ: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
