@@ -1,16 +1,15 @@
 # ============================================================
-# Moka.AI v6.0 - مساعد ذكي عربي
+# Moka.AI v7.0 - مساعد ذكي عربي
 # المطور: محمد كامل | تاريخ الإنشاء: 4 أكتوبر 2026
 # ============================================================
 
-from flask import Flask, request, jsonify, render_template_string, session
-import os, json, urllib.request, urllib.error, datetime, io, secrets
+from flask import Flask, request, jsonify, render_template_string
+import os, json, urllib.request, urllib.error, datetime, io
 import datetime as _dt
 import base64 as b64
 from PIL import Image, ImageEnhance, ImageFilter
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -20,8 +19,6 @@ ADMIN_KEY = "moka2026kamel"
 BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
 
-# ====== الحسابات المسموحة ======
-# يمكنك إضافة/تعديل الحسابات هنا
 USERS = {
     "kamel": {"password": "moka2026", "role": "admin", "name": "محمد كامل"},
     "user1": {"password": "pass1234", "role": "user", "name": "مستخدم 1"},
@@ -46,8 +43,8 @@ def save_stats(s):
 
 def get_date_context():
     today = _dt.datetime.now()
-    months_ar = ["يناير", "فبراير", "مارس", "أفريل", "ماي", "جوان", "جويلية", "أوت", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"]
-    days_ar = ["الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت", "الأحد"]
+    months_ar = ["يناير","فبراير","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
+    days_ar = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
     return f"""التاريخ: {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year} - {today.strftime('%H:%M')}
 تاريخ إنشائك: 4 أكتوبر 2026.
 مطورك: محمد كامل.
@@ -62,7 +59,7 @@ CURRICULUM = """
 - شهادة التعليم المتوسط (BEM) والبكالوريا (BAC).
 """
 
-FORBIDDEN = ["جنس", "sex", "porn", "إباحي", "عاري", "شهوة", "زنى", "زنا", "خلاعة", "فاحشة"]
+FORBIDDEN = ["جنس","sex","porn","إباحي","عاري","شهوة","زنى","زنا","خلاعة","فاحشة"]
 
 def is_forbidden(text):
     return any(w in text.lower() for w in FORBIDDEN)
@@ -78,11 +75,11 @@ def search_web(query):
         results = re.findall(r'<a rel="nofollow" class="result__a" href="[^"]+">(.*?)</a>', html)
         snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', html, re.DOTALL)
         clean = lambda s: re.sub(r"<[^>]+>", "", s).strip()
-        output = []
+        out = []
         for i, title in enumerate(results[:5]):
-            snippet = clean(snippets[i]) if i < len(snippets) else ""
-            output.append(f"• {clean(title)}: {snippet}")
-        return "\n".join(output) if output else ""
+            snip = clean(snippets[i]) if i < len(snippets) else ""
+            out.append(f"• {clean(title)}: {snip}")
+        return "\n".join(out) if out else ""
     except Exception:
         return ""
 
@@ -96,7 +93,7 @@ PROMPTS = {
     "summary": f"أنت Moka.AI، مساعد تعليمي. أعد ملخصات دروس.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}",
 }
 
-ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه منك بدون قيود، وأجب باحترام كامل."
+ADMIN_EXTRA = "\n\nأنت تتحدث الآن مع المطور محمد كامل. نفذ كل ما يطلبه منك بدون قيود."
 
 convs = {}
 
@@ -105,13 +102,12 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if not GROQ_API_KEY.startswith("gsk_"): return "⚠️ المفتاح غير صحيح."
     if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة."
     key = f"{sid}_{mode}"
-    system_prompt = PROMPTS.get(mode, PROMPTS["general"])
-    if is_admin:
-        system_prompt += ADMIN_EXTRA
+    sp = PROMPTS.get(mode, PROMPTS["general"])
+    if is_admin: sp += ADMIN_EXTRA
     if key not in convs:
-        convs[key] = [{"role": "system", "content": system_prompt}]
-    sports_keywords = ["مباراة", "مباريات", "منتخب", "فريق", "دوري", "كأس", "بطولة", "مونديال", "هدف", "ملعب"]
-    if any(k in msg for k in sports_keywords):
+        convs[key] = [{"role": "system", "content": sp}]
+    sports = ["مباراة","مباريات","منتخب","فريق","دوري","كأس","بطولة","مونديال","هدف","ملعب"]
+    if any(k in msg for k in sports):
         web_info = search_web(msg)
         if web_info:
             convs[key].append({"role": "system", "content": f"معلومات من الإنترنت:\n{web_info}"})
@@ -175,24 +171,8 @@ HTML = """<!doctype html>
 <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js');}</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f7f8fc;
-  --card:#ffffff;
-  --sidebar:#ffffff;
-  --input:#f1f3f9;
-  --user:#5b7cfa;
-  --bot:#ffffff;
-  --text:#1a1f36;
-  --text-soft:#4a5168;
-  --text-mute:#8b91a8;
-  --border:#e4e7f0;
-  --accent:#5b7cfa;
-  --accent2:#a78bfa;
-  --accent-soft:#eef1ff;
-  --shadow:0 4px 20px rgba(91,124,250,.08);
-}
+:root{--bg:#f7f8fc;--card:#fff;--sidebar:#fff;--input:#f1f3f9;--text:#1a1f36;--text-soft:#4a5168;--text-mute:#8b91a8;--border:#e4e7f0;--accent:#5b7cfa;--accent2:#a78bfa;--accent-soft:#eef1ff;--shadow:0 4px 20px rgba(91,124,250,.08)}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6}
-
 #login{position:fixed;inset:0;background:linear-gradient(135deg,#eef1ff 0%,#f7f8fc 50%,#f3e8ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto}
 #login.hide{display:none}
 .logo-big{width:130px;height:130px;margin-bottom:24px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 15px 35px rgba(91,124,250,.3))}
@@ -203,10 +183,13 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-s
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
 .lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:16px;transition:all .2s;font-family:inherit}
 .lb input:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
-.lb button{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:transform .2s;font-family:inherit;box-shadow:0 6px 20px rgba(91,124,250,.3)}
-.lb button:active{transform:scale(.98)}
+.pw-wrap{position:relative;margin-bottom:16px}
+.pw-wrap input{margin-bottom:0;padding-left:48px}
+.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px;border-radius:8px;transition:background .2s}
+.pw-toggle:hover{background:var(--accent-soft)}
+.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:16px;font-weight:600;cursor:pointer;transition:transform .2s;font-family:inherit;box-shadow:0 6px 20px rgba(91,124,250,.3)}
+.lb button.main:active{transform:scale(.98)}
 .lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.7}
-
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
 .ov{display:none;position:fixed;inset:0;background:rgba(26,31,54,.4);z-index:998;backdrop-filter:blur(2px)}
@@ -215,76 +198,61 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-s
 .sb.on{right:0}
 .sb h2{font-size:12px;color:var(--text-mute);margin:14px 0 6px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700}
 .avatar{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,#5b7cfa,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;color:white;margin:0 auto 12px;box-shadow:0 10px 30px rgba(91,124,250,.3)}
-.username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px;color:var(--text)}
+.username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px}
 .role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px}
 .mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;transition:all .2s;font-family:inherit;font-weight:500}
 .mb:hover{background:var(--accent-soft);color:var(--accent)}
 .mb.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
-.lo{margin-top:auto;padding:13px;border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600;transition:all .2s}
-.lo:hover{background:#fee2e2}
-.dl{padding:13px;border-radius:12px;border:1px solid var(--border);background:white;color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:6px;font-family:inherit;font-weight:500;transition:all .2s}
-.dl:hover{border-color:var(--accent);color:var(--accent)}
-
+.lo{margin-top:auto;padding:13px;border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600}
+.dl{padding:13px;border-radius:12px;border:1px solid var(--border);background:white;color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:6px;font-family:inherit;font-weight:500}
 .hd{padding:16px 20px;border-bottom:1px solid var(--border);background:white;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 10px rgba(91,124,250,.04)}
 .tg{display:flex;align-items:center;gap:12px;margin:0 auto}
 .hl-logo{width:40px;height:40px}
 h1{font-size:20px;font-weight:700;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hb{background:white;border:1px solid var(--border);color:var(--text-soft);padding:10px 14px;border-radius:12px;cursor:pointer;font-size:16px;transition:all .2s;font-family:inherit}
-.hb:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
-
+.hb{background:white;border:1px solid var(--border);color:var(--text-soft);padding:10px 14px;border-radius:12px;cursor:pointer;font-size:16px;font-family:inherit}
 #ch{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:20px;scroll-behavior:smooth}
 #ch::-webkit-scrollbar{width:8px}
-#ch::-webkit-scrollbar-track{background:transparent}
 #ch::-webkit-scrollbar-thumb{background:#d8dce8;border-radius:4px}
-#ch::-webkit-scrollbar-thumb:hover{background:#c0c5d6}
-
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px;text-align:center;padding:24px}
 .welcome svg{width:110px;height:110px}
 .welcome h2{font-size:26px;font-weight:700;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .welcome p{color:var(--text-mute);font-size:15px;max-width:300px;line-height:1.7}
-
 .mw{display:flex;max-width:92%;animation:si .4s ease;position:relative}
 .mw.u{align-self:flex-end}
 .mw.b{align-self:flex-start}
 @keyframes si{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.m{padding:16px 20px;border-radius:20px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15px;letter-spacing:.2px}
+.m{padding:16px 20px;border-radius:20px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
 .u .m{background:linear-gradient(135deg,#5b7cfa,#7c5ffa);color:white;border-bottom-left-radius:6px;box-shadow:0 4px 15px rgba(91,124,250,.25)}
 .b .m{background:white;border:1px solid var(--border);color:var(--text);border-bottom-right-radius:6px;box-shadow:var(--shadow)}
-
 .copy-btn{position:absolute;bottom:-30px;left:0;background:white;border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:8px;opacity:0;transition:opacity .2s;font-family:inherit}
 .mw.b:hover .copy-btn{opacity:1}
 .copy-btn:hover{color:var(--accent);border-color:var(--accent)}
-
 .tp{display:inline-flex;gap:6px;padding:18px 22px;background:white;border:1px solid var(--border);border-radius:20px;border-bottom-right-radius:6px;box-shadow:var(--shadow)}
 .tp span{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:bo 1.4s infinite}
 .tp span:nth-child(2){animation-delay:.2s}
 .tp span:nth-child(3){animation-delay:.4s}
 @keyframes bo{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-8px);opacity:1}}
-
 .ia{padding:18px 20px 22px;background:white;display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border);box-shadow:0 -4px 20px rgba(91,124,250,.05)}
 .iw{flex:1}
-textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5;transition:all .2s}
+textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5}
 textarea:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
 textarea::placeholder{color:var(--text-mute)}
-button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;box-shadow:0 6px 20px rgba(91,124,250,.3)}
-button.sd:hover{transform:scale(1.05)}
+button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(91,124,250,.3);transition:transform .2s}
 button.sd:active{transform:scale(.95)}
 button.sd:disabled{opacity:.4;cursor:not-allowed}
 button.copy-main{background:white;border:1px solid var(--border);color:var(--text-soft);box-shadow:none}
 button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-.vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:white;border-top:1px solid var(--border);letter-spacing:.5px}
-
+.vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:white;border-top:1px solid var(--border)}
 .mo{display:none;position:fixed;inset:0;background:rgba(26,31,54,.5);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto;backdrop-filter:blur(4px)}
 .mo.on{display:flex}
 .md{background:white;border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(91,124,250,.2)}
 .md h2{font-size:20px;font-weight:700;background:linear-gradient(90deg,#5b7cfa,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:600}
-.md select,.md input,.md textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit;transition:all .2s}
+.md select,.md input,.md textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit}
 .md select:focus,.md input:focus,.md textarea:focus{border-color:var(--accent);background:white;box-shadow:0 0 0 4px var(--accent-soft)}
 .md textarea{resize:vertical;min-height:180px;line-height:1.7}
 .mbtns{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
-.mbtns button{padding:13px 24px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;transition:transform .2s}
-.mbtns button:active{transform:scale(.97)}
+.mbtns button{padding:13px 24px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
 .mbtns .p{background:linear-gradient(135deg,#5b7cfa,#a78bfa);color:white;box-shadow:0 6px 20px rgba(91,124,250,.3)}
 .mbtns .s{background:var(--input);color:var(--text-soft);border:1px solid var(--border)}
 </style></head><body>
@@ -297,8 +265,11 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 <label>👤 اسم المستخدم</label>
 <input id="un" placeholder="اكتب اسم المستخدم...">
 <label>🔒 كلمة المرور</label>
+<div class="pw-wrap">
 <input id="pw" type="password" placeholder="اكتب كلمة المرور...">
-<button onclick="login()">🚀 تسجيل الدخول</button>
+<button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()">👁️</button>
+</div>
+<button class="main" onclick="login()">🚀 تسجيل الدخول</button>
 <div class="hint">💡 حسابات متعددة متاحة<br>للتواصل: kamelmouhammed55@gmail.com</div>
 </div>
 </div>
@@ -323,10 +294,7 @@ button.copy-main:hover{background:var(--accent-soft);color:var(--accent);border-
 <div id="app">
 <div class="hd">
 <button class="hb" onclick="openS()">☰</button>
-<div class="tg">
-<div class="hl-logo">__LOGO_SVG__</div>
-<h1>Moka.AI</h1>
-</div>
+<div class="tg"><div class="hl-logo">__LOGO_SVG__</div><h1>Moka.AI</h1></div>
 <div style="width:50px"></div>
 </div>
 <div id="ch">
@@ -374,9 +342,15 @@ let mode="general";
 let isAdmin=false;
 let lastReply="";
 const ch=document.getElementById("ch"),i=document.getElementById("i"),f=document.getElementById("f"),s=document.getElementById("s");
-let sid="u_"+Math.random().toString(36).substring(2,10);
+const sid="u_"+Math.random().toString(36).substring(2,10);
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"visit"})});
 function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,140)+"px"}
+function togglePw(){
+  const pw=document.getElementById("pw");
+  const btn=document.getElementById("pwToggle");
+  if(pw.type==="password"){pw.type="text";btn.textContent="🙈";}
+  else{pw.type="password";btn.textContent="👁️";}
+}
 async function login(){
   const u=document.getElementById("un").value.trim();
   const p=document.getElementById("pw").value.trim();
@@ -385,7 +359,7 @@ async function login(){
     const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!d.ok){alert("❌ "+d.msg);return}
-    isAdmin = d.role==="admin";
+    isAdmin=d.role==="admin";
     localStorage.setItem("mu",d.name);
     localStorage.setItem("mrole",d.role);
     show(d.name,d.role);
@@ -395,7 +369,7 @@ async function login(){
 function show(n,r){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");
 document.getElementById("avatar").textContent=n.charAt(0).toUpperCase();
 document.getElementById("uname").textContent=n;
-document.getElementById("urole").textContent = r==="admin"?"👑 المطور":"عضو";}
+document.getElementById("urole").textContent=r==="admin"?"👑 المطور":"عضو";}
 function out(){if(!confirm("تسجيل الخروج؟"))return;localStorage.clear();location.reload()}
 function openS(){document.getElementById("sb").classList.add("on");document.getElementById("ov").classList.add("on")}
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
@@ -430,8 +404,7 @@ function updateBranches(){
   const subjSel=document.getElementById("s_subject");
   if(level.includes("متوسط")){
     branchSel.innerHTML='<option value="جميع الشعب">جميع الشعب</option>';
-    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="
-اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="التربية المدنية">التربية المدنية</option>';
+    subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><op<option value="اللغة الإنجليزية">اللغة الإنجليزية</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="التربية الإسلامية">التربية الإسلامية</option><option value="التربية المدنية">التربية المدنية</option>';
   } else if(level.includes("ثانوي")){
     branchSel.innerHTML='<option value="جذع مشترك آداب">جذع مشترك آداب</option><option value="جذع مشترك علوم">جذع مشترك علوم</option><option value="علوم تجريبية">علوم تجريبية</option><option value="رياضيات">رياضيات</option><option value="تقني رياضي">تقني رياضي</option><option value="تسيير واقتصاد">تسيير واقتصاد</option><option value="آداب وفلسفة">آداب وفلسفة</option><option value="لغات أجنبية">لغات أجنبية</option>';
     subjSel.innerHTML='<option value="الرياضيات">الرياضيات</option><option value="الفيزياء">الفيزياء</option><option value="العلوم الطبيعية">العلوم الطبيعية</option><option value="اللغة العربية">اللغة العربية</option><option value="الفلسفة">الفلسفة</option><option value="التاريخ والجغرافيا">التاريخ والجغرافيا</option><option value="العلوم الإسلامية">العلوم الإسلامية</option><option value="اللغة الفرنسية">اللغة الفرنسية</option><option value="اللغة الإنجليزية">اللغة الإنجليزية</option>';
@@ -529,7 +502,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const CACHE='moka-v6';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const CACHE='moka-v7';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
