@@ -1,4 +1,4 @@
-# Moka.AI v14.0 - المطور: محمد كامل
+# Moka.AI v15.0 - المطور: محمد كامل
 from flask import Flask, request, jsonify, render_template_string
 import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
@@ -9,6 +9,7 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
 ADMIN_KEY = "moka2026kamel"
+ADMIN_USERNAME = "kamel"
 BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
@@ -16,11 +17,9 @@ USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 def load_users():
     try:
         with open(USERS_FILE, "r", encoding="utf-8") as f:
-            users = json.load(f)
+            return json.load(f)
     except Exception:
-        users = {}
-    users["kamel"] = {"password": "moka2026", "role": "admin", "name": "محمد كامل"}
-    return users
+        return {}
 
 def save_users(users):
     try:
@@ -51,14 +50,6 @@ def clean_reply(text):
     text = text.replace("\\text", "").replace("\\displaystyle", "").replace("\\cdot", "×")
     text = text.replace("###", "").replace("##", "").replace("**", "")
     return text
-
-def detect_language(text):
-    """كشف لغة النص"""
-    arabic = sum(1 for c in text if '\u0600' <= c <= '\u06FF')
-    latin = sum(1 for c in text if c.isalpha() and ord(c) < 128)
-    if arabic > latin: return "العربية"
-    if latin > 0: return "English/other Latin"
-    return "العربية"
 
 def get_date_context():
     today = _dt.datetime.now()
@@ -140,10 +131,10 @@ NO_LATEX = """
 LANGUAGE_RULE = """
 قاعدة اللغة (مهمة جداً):
 - إذا كتب المستخدم بالعربية، أجب بالعربية الفصحى المبسطة.
-- إذا كتب بالإنجليزية (English)، أجب بالإنجليزية فقط (English only).
+- إذا كتب بالإنجليزية (English)، أجب بالإنجليزية فقط.
 - إذا كتب بالفرنسية (Français)، أجب بالفرنسية فقط.
 - إذا كتب بأي لغة أخرى، أجب بنفس تلك اللغة.
-- لا تخلط بين اللغات أبداً في نفس الرد.
+- لا تخلط بين اللغات في نفس الرد.
 """
 
 PROMPTS = {
@@ -151,7 +142,34 @@ PROMPTS = {
     "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
-    "summary": f"أنت Moka.AI، مساعد تعليمي متخصص في المنهاج الجزائري.\nمهمتك: إعداد ملخصات دروس مفصلة ومنظمة.\nاكتب الملخص بهذا الشكل:\n📚 عنوان الدرس\n🎯 الأهداف\n📖 المحتوى الأساسي\n💡 الأمثلة\n❓ أسئلة تقويمية\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "summary": f"""أنت Moka.AI، مساعد تعليمي متخصص في المنهاج الجزائري.
+مهمتك: إعداد ملخصات دروس مفصلة ومنظمة.
+
+اكتب الملخص بهذا الشكل بالضبط:
+📚 عنوان الدرس
+
+🎯 الأهداف:
+- هدف 1
+- هدف 2
+- هدف 3
+
+📖 المحتوى الأساسي:
+(شرح مفصل للمفاهيم)
+
+💡 الأمثلة:
+(أمثلة محلولة)
+
+❓ أسئلة تقويمية:
+- سؤال 1
+- سؤال 2
+
+{CURRICULUM}
+
+{DATE_CONTEXT}
+
+{NO_LATEX}
+
+{LANGUAGE_RULE}""",
 }
 
 convs = {}
@@ -206,29 +224,7 @@ def summarize(text):
     return "⚠️ تعذر التلخيص."
 
 def generate_lesson_summary(level, branch, subject, lesson):
-    prompt = f"""أنشئ ملخصاً مفصلاً ومفيداً لهذا الدرس:
-- المستوى: {level}
-- الشعبة: {branch}
-- المادة: {subject}
-- الدرس: {lesson}
-
-اكتب الملخص بهذا الشكل الدقيق:
-📚 عنوان الدرس: {lesson}
-
-🎯 الأهداف:
-- (اذكر 3-5 أهداف تعليمية)
-
-📖 المحتوى الأساسي:
-(اشرح المفاهيم الأساسية بوضوح، مع التعريفات والقوانين)
-
-💡 الأمثلة:
-(اذكر 2-3 أمثلة محلولة)
-
-❓ أسئلة تقويمية:
-(اذكر 3-5 أسئلة للتقييم)
-
-اكتب كل شيء بالعربية البسيطة، بدون رموز LaTeX."""
-
+    prompt = f"أنشئ ملخصاً مفصلاً للدرس: {lesson}\nالمستوى: {level}\nالشعبة: {branch}\nالمادة: {subject}"
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
@@ -239,9 +235,9 @@ def generate_lesson_summary(level, branch, subject, lesson):
                 method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
                 return clean_reply(json.loads(r.read().decode())["choices"][0]["message"]["content"])
-        except Exception as e:
+        except Exception:
             continue
-    return "⚠️ تعذر إنشاء الملخص. الرجاء المحاولة مرة أخرى."
+    return "⚠️ تعذر إنشاء الملخص."
 LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="50%" style="stop-color:#5b7cfa"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient></defs><polygon points="50,3 88,25 88,75 50,97 12,75 12,25" fill="url(#lg)"/><circle cx="50" cy="50" r="28" fill="white" opacity="0.15"/><text x="50" y="66" font-family="Arial" font-size="42" font-weight="bold" fill="white" text-anchor="middle">M</text><circle cx="72" cy="28" r="6" fill="#fbbf24"/></svg>'''
 
 HTML = """<!doctype html>
@@ -264,12 +260,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-s
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
 .lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;font-family:inherit}
 .lb input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-.pw-wrap{position:relative;margin-bottom:14px}
-.pw-wrap input{margin-bottom:0;padding-left:48px}
-.pw-toggle{position:absolute;left:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;padding:8px}
 .lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 8px 25px rgba(124,58,237,.4)}
-.lb button.secondary{width:100%;padding:13px;border-radius:12px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-top:10px;font-family:inherit}
-.lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px}
+.lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.8}
+.lb .admin-hint{background:var(--accent-soft);color:var(--accent);padding:10px;border-radius:10px;text-align:center;font-size:12px;margin-top:14px;font-weight:600}
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
 .ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998}
@@ -340,15 +333,10 @@ button.copy-main{background:var(--card);border:1px solid var(--border);color:var
 <div class="ls">مساعدك الذكي من تطوير محمد كامل</div>
 <div class="lb">
 <label>👤 اسم المستخدم</label>
-<input id="un" placeholder="اكتب اسم المستخدم...">
-<label>🔒 كلمة المرور</label>
-<div class="pw-wrap">
-<input id="pw" type="password" placeholder="اكتب كلمة المرور...">
-<button type="button" class="pw-toggle" id="pwToggle" onclick="togglePw()">👁️</button>
-</div>
-<button class="main" onclick="login()">🚀 تسجيل الدخول</button>
-<button class="secondary" onclick="register()">✨ إنشاء حساب جديد</button>
-<div class="hint">💡 يمكنك إنشاء حسابك الخاص بحرية</div>
+<input id="un" placeholder="اكتب اسمك للدخول..." autocomplete="off">
+<button class="main" onclick="login()">🚀 دخول</button>
+<div class="hint">💡 أدخل اسمك مباشرة وابدأ المحادثة</div>
+<div class="admin-hint">🔑 حساب المطور: kamel</div>
 </div>
 </div>
 
@@ -379,7 +367,7 @@ button.copy-main{background:var(--card);border:1px solid var(--border);color:var
 <div class="welcome" id="welcome">
 <div style="width:120px;height:120px">__LOGO_SVG__</div>
 <h2>كيف يمكنني مساعدتك؟</h2>
-<p>اسألني أي شيء (عربي/English/Français)، أو افتح ملخصات الدروس 📚</p>
+<p>اسألني أي شيء (عربي/English/Français)</p>
 </div>
 </div>
 <form class="ia" id="f">
@@ -434,17 +422,12 @@ function toggleTheme(){
   document.getElementById("themeBtn").textContent = nw==="dark"?"☀️":"🌙";
 }
 function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,140)+"px"}
-function togglePw(){
-  const pw=document.getElementById("pw"),btn=document.getElementById("pwToggle");
-  if(pw.type==="password"){pw.type="text";btn.textContent="🙈";}
-  else{pw.type="password";btn.textContent="👁️";}
-}
 async function login(){
   const u=document.getElementById("un").value.trim();
-  const p=document.getElementById("pw").value.trim();
-  if(!u||!p){alert("املأ الحقول");return}
+  if(!u){alert("اكتب اسمك");return}
+  if(u.length<2){alert("الاسم قصير جداً");return}
   try{
-    const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
+    const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u})});
     const d=await r.json();
     if(!d.ok){alert("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
@@ -452,20 +435,6 @@ async function login(){
     localStorage.setItem("mrole",d.role);
     show(d.name,d.role);
     fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"login",name:d.name})});
-  }catch(e){alert("تعذر الاتصال")}
-}
-async function register(){
-  const u=document.getElementById("un").value.trim();
-  const p=document.getElementById("pw").value.trim();
-  if(!u||!p){alert("املأ الحقول");return}
-  if(u.length<3){alert("اسم المستخدم 3 أحرف على الأقل");return}
-  if(p.length<4){alert("كلمة المرور 4 أحرف على الأقل");return}
-  if(u.toLowerCase()==="kamel"){alert("هذا الاسم محجوز");return}
-  try{
-    const r=await fetch("/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
-    const d=await r.json();
-    if(!d.ok){alert("❌ "+d.msg);return}
-    alert("✅ تم إنشاء الحساب! سجل الدخول الآن.");
   }catch(e){alert("تعذر الاتصال")}
 }
 function show(n,r){document.getElementById("login").classList.add("hide");document.getElementById("app").classList.add("on");
@@ -498,8 +467,7 @@ async function doSum(){const t=document.getElementById("st").value.trim();if(!t)
 add("📝 لخّص...","u");const ty=typ();
 try{const r=await fetch("/summarize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t})});
 const d=await r.json();ty.remove();add(d.summary||"خطأ","b")}catch(e){ty.remove();add("تعذر","b")}}
-function openSumma
-ries(){document.getElementById("summariesModal").classList.add("on")}
+function openSummaries(){document.getElementById("summariesModal").classList.add("on")}
 function closeSummaries(){document.getElementById("summariesModal").classList.remove("on")}
 function updateBranches(){
   const level=document.getElementById("s_level").value;
@@ -569,9 +537,9 @@ h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#7c3aed
 <div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 رسائل</div></div>
 <div class="card"><div class="num">{{users_count}}</div><div class="lbl">👥 حسابات</div></div>
 </div>
-<div class="box"><h2>👥 قائمة الحسابات</h2>
+<div class="box"><h2>👥 قائمة المستخدمين</h2>
 {% for u, info in users.items() %}
-<div class="row"><span>👤 <b>{{info.name}}</b> ({{u}})</span><span style="color:#8b91a8">{{info.role}}</span></div>
+<div class="row"><span>👤 <b>{{info.name}}</b></span><span style="color:#8b91a8">{{info.role}}</span></div>
 {% endfor %}
 </div>
 <div class="box"><h2>📈 استخدام النماذج</h2>
@@ -602,36 +570,22 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const C='moka-v14';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v15';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
     try:
         d = request.get_json(silent=True) or {}
         u = d.get("username", "").strip().lower()
-        p = d.get("password", "").strip()
+        if not u: return jsonify({"ok": False, "msg": "اكتب اسمك"})
+        if len(u) < 2: return jsonify({"ok": False, "msg": "الاسم قصير جداً"})
         users = load_users()
-        if u in users and users[u]["password"] == p:
-            return jsonify({"ok": True, "name": users[u]["name"], "role": users[u]["role"]})
-        return jsonify({"ok": False, "msg": "اسم المستخدم أو كلمة المرور غير صحيحة"})
-    except Exception as e:
-        return jsonify({"ok": False, "msg": str(e)})
-
-@app.post("/register")
-def do_register():
-    try:
-        d = request.get_json(silent=True) or {}
-        u = d.get("username", "").strip().lower()
-        p = d.get("password", "").strip()
-        if not u or not p: return jsonify({"ok": False, "msg": "املأ الحقول"})
-        if len(u) < 3: return jsonify({"ok": False, "msg": "اسم المستخدم قصير (3 أحرف على الأقل)"})
-        if len(p) < 4: return jsonify({"ok": False, "msg": "كلمة المرور قصيرة (4 أحرف على الأقل)"})
-        if u == "kamel": return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
-        users = load_users()
-        if u in users: return jsonify({"ok": False, "msg": "الاسم موجود مسبقاً"})
-        users[u] = {"password": p, "role": "user", "name": u}
-        save_users(users)
-        return jsonify({"ok": True})
+        # إذا كان مستخدم جديد، أضفه
+        if u not in users:
+            users[u] = {"role": "admin" if u == ADMIN_USERNAME else "user", "name": u}
+            save_users(users)
+        role = users[u].get("role", "user")
+        return jsonify({"ok": True, "name": users[u].get("name", u), "role": role})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 
