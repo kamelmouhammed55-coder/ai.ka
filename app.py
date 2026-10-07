@@ -1,4 +1,5 @@
-# Moka.AI v17.0 - المطور: محمد كامل
+# Moka.AI v18.0 - ذكاء اصطناعي متكامل
+# المطور: محمد كامل
 from flask import Flask, request, jsonify, render_template_string
 import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
@@ -8,7 +9,6 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
-# ============ بيانات الأدمن (صعبة التخمين) ============
 ADMIN_USERNAME = "km_2026_x9_alpha_prime_kamel_dz"
 ADMIN_PASSWORD = "M0k@.AI!2026#Secure$X9_Dz"
 ADMIN_KEY = "moka_X9_kamel_admin_2026_secure"
@@ -55,36 +55,128 @@ def clean_reply(text):
     return text
 
 def get_date_context():
-    today = _dt.datetime.now()
+    algeria_tz = _dt.timezone(_dt.timedelta(hours=1))
+    today = _dt.datetime.now(algeria_tz)
     months_ar = ["يناير","فبراير","مارس","أفريل","ماي","جوان","جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     days_ar = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
-    return f"""معلومات مهمة:
-- التاريخ: {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year}
-- تاريخ إنشاء التطبيق: 4 أكتوبر 2026
-- مطورك: محمد كامل
-- إذا سُئلت "متى صنعت؟" أجب: "صنعني محمد كامل يوم 4 أكتوبر 2026."
-- لا تقل أبداً أنك GPT أو OpenAI.
+    return f"""معلومات الوقت الحالي (استخدمها دائماً):
+- التاريخ (توقيت الجزائر): {days_ar[today.weekday()]} {today.day} {months_ar[today.month-1]} {today.year}
+- الساعة الآن (GMT+1 الجزائر): {today.strftime('%H:%M')}
+"""
 
-معلومات الفرق:
-- اتحاد الجزائر (USMA): أحمر وأسود (1937).
-- مولودية الجزائر (MCA): أحمر وأخضر (1921).
-- شباب بلوزداد (CRB): أحمر وأبيض (1962).
+# ============ معلوماتك الشخصية ============
+OWNER_INFO = """
+معلومات عن مطورك ومالكك الرسمي (احفظها جيداً):
+- الاسم الكامل: محمد كامل
+- العمر: 15 سنة (مولود في 16 أفريل 2011)
+- تاريخ الميلاد: 16/04/2011
+- الجنسية: جزائري
+- الصفة: مطور ومالك Moka.AI الرسمي
+- تاريخ إنشاء التطبيق: 4 أكتوبر 2026
+
+قواعد مهمة جداً للهوية:
+1. إذا سألك أحد "شكون صنعك؟" أو "من صنعك؟" أو "شكون خدمك؟" أو "من طورك؟" أو "who made you" أجب: "صنعني محمد كامل، مطوري ومالكي الرسمي."
+2. إذا سألك "متى صنعت؟" أو "متى تم إنشاؤك؟" أجب: "صنعني محمد كامل يوم 4 أكتوبر 2026."
+3. إذا سألك "شكون أنت؟" أو "من أنت؟" أجب: "أنا Moka.AI، مساعد ذكي طورني محمد كامل."
+4. إذا سألك "شكون أنا؟" من غير المطور أجب: "أنت مستخدم في Moka.AI."
+5. إذا سألك شخص "شكون محمد كامل؟" أجب: "محمد كامل هو مطور ومالك Moka.AI، عمره 15 سنة، من الجزائر."
+6. لا تقل أبداً أنك GPT أو Claude أو Gemini أو OpenAI. أنت Moka.AI فقط.
+"""
+
+# ============ معلومات العالم الشاملة ============
+WORLD_KNOWLEDGE = """
+معرفتك الشاملة (أنت تعرف كل شيء عن العالم):
+
+التاريخ والحروب:
+- الحرب العالمية الأولى 1914-1918، الثانية 1939-1945.
+- حرب الجزائر 1954-1962 (استقلال 5 جويلية 1962).
+- ثورة نوفمبر 1954، مجازر 8 ماي 1945.
+- معارك إسلامية: بدر (624م)، اليرموك (636م)، القادسية (636م)، حطين (1187م)، عين جالوت (1260م).
+- فتوحات: عمر بن الخطاب، خالد بن الوليد، صلاح الدين الأيوبي، طارق بن زياد.
+- الإمبراطوريات: الرومانية، العثمانية، الفارسية، الإسلامية، البريطانية، الفرنسية.
+- شخصيات: نابليون (1769-1821)، هتلر (1889-1945)، تشرشل، ديغول.
+- الثورات: الفرنسية 1789، الأمريكية 1776، البلشفية 1917.
+
+الجغرافيا:
+- 195 دولة في العالم، عواصمها، سكانها، عملاتها، لغاتها.
+- القارات: آسيا، أفريقيا، أوروبا، أمريكا الشمالية، الجنوبية، أستراليا، أنتاركتيكا.
+- المحيطات: الهادئ، الأطلسي، الهندي، المتجمد الشمالي، المتجمد الجنوبي.
+- أنهار: النيل، الأمازون، المسيسيبي، اليانغتسي.
+- جبال: إيفرست (8848م)، كليمنجارو، الألب، الأطلس.
+- صحاري: الصحراء الكبرى، غوبي، كالاهاري.
+
+العلوم:
+- الفيزياء: النسبية (أينشتاين)، الكم، الجاذبية، الذرة، الموجات.
+- الكيمياء: الجدول الدوري (118 عنصر)، التفاعلات، الأحماض، القواعد.
+- الأحياء: الخلية، DNA، التطور (داروين)، الأعضاء، الأمراض.
+- الفلك: 8 كواكب، الشمس، القمر، المجرات، الثقوب السوداء، الثقب الأسود.
+- الرياضيات: الجبر، الهندسة، التفاضل، التكامل، الإحصاء، الاحتمالات.
+
+الرياضة (استخدمها + البحث):
+- كرة القدم: كأس العالم (2022 الأرجنتين، 2026 أمريكا/كندا/المكسيك من 11 جوان إلى 19 جويلية).
+- كأس أمم أفريقيا 2025 في المغرب.
+- دوري أبطال أوروبا: سنوي، ينتهي في ماي/جوان.
+- الدوريات: إنجليزي، إسباني، إيطالي، ألماني، فرنسي، جزائري.
+- أولمبياد: 2024 باريس، 2028 لوس أنجلوس.
+- ألعاب أخرى: تنس، كرة سلة، سباحة، ألعاب قوى.
+
+الفرق والمنتخبات:
+- اتحاد الجزائر USMA: أحمر وأسود (1937).
+- مولودية الجزائر MCA: أحمر وأخضر (1921).
+- شباب بلوزداد CRB: أحمر وأبيض (1962).
+- وفاق سطيف ESS: أسود وأبيض (1958).
 - ريال مدريد: أبيض وذهبي (1902).
 - برشلونة: أزرق وأحمر (1899).
 - مانشستر يونايتد: أحمر وأبيض وأسود (1878).
 - ليفربول: أحمر وأبيض (1892).
-- بايرن ميونخ: أحمر وأبيض وأزرق (1900).
+- مانشستر سيتي: أزرق سماوي (1880).
+- بايرن ميونخ: أحمر وأبيض (1900).
 - يوفنتوس: أسود وأبيض (1897).
+- إنتر ميلان: أزرق وأسود (1908).
 - الأهلي المصري: أحمر وأبيض (1907).
-- منتخب الجزائر: أخضر وأبيض وأحمر (1962).
-- كأس العالم 2026: أمريكا، كندا، المكسيك."""
+- الزمالك: أبيض وأحمر (1911).
+- منتخب الجزائر: أخضر وأبيض (1962).
+- منتخب البرازيل: أصفر وأخضر (1914).
+- منتخب الأرجنتين: أزرق سماوي وأبيض (1893).
+- منتخب فرنسا: أزرق وأبيض وأحمر (1904).
+- منتخب المغرب: أحمر وأخضر (1955).
+- منتخب تونس: أحمر وأبيض (1957).
 
+الأديان:
+- الإسلام: القرآن، السنة، 5 أركان، 6 إيمان، المذاهب الأربعة.
+- المسيحية: الإنجيل، 3 طوائف.
+- اليهودية: التوراة.
+- الهندوسية، البوذية، السيخية.
+
+التكنولوجيا:
+- البرمجة: Python، JavaScript، HTML، CSS، Java، C++.
+- الذكاء الاصطناعي: الشبكات العصبية، التعلم العميق، LLMs.
+- الإنترنت، الأمن السيبراني، الحوسبة السحابية.
+
+الثقافة والفنون:
+- الأدب: شكسبير، نجيب محفوظ، طه حسين، المتنبي، أحمد شوقي.
+- السينما: هوليوود، بوليوود، السينما العربية.
+- الموسيقى: الكلاسيكية، العربية، الغربية.
+- الرسم والنحت.
+
+الطب والجسم:
+- 206 عظمة، 32 سن، 5 لتر دم.
+- القلب، الرئتان، الكبد، الكليتان، الدماغ.
+- الأمراض الشائعة وعلاجها.
+"""
+
+# ============ المنهاج الجزائري ============
 CURRICULUM = """
 المنهاج الجزائري 2026-2027:
-- الابتدائي: الإنجليزية من السنة الثالثة.
-- المتوسط: معامل الرياضيات 4 في الرابعة متوسط.
-- الثانوي: جذع آداب (31 ساعة)، علوم (32 ساعة).
-- الشهادات: BEM، BAC.
+- الابتدائي (1-5): اللغة العربية، الرياضيات، التربية الإسلامية، التربية المدنية، التاريخ، الجغرافيا، العلوم، الفرنسية (من 3)، الإنجليزية (من 3).
+- المتوسط (1-4): العربية، الرياضيات، الفيزياء، العلوم الطبيعية، التاريخ، الجغرافيا، التربية الإسلامية، التربية المدنية، الفرنسية، الإنجليزية.
+  معاملات: العربية 5 (4م)، الرياضيات 4 (4م)، الفرنسية 3، الإنجليزية 3.
+  شهادة التعليم المتوسط BEM.
+- الثانوي:
+  - جذع مشترك آداب: 31 ساعة أسبوعياً.
+  - جذع مشترك علوم: 32 ساعة أسبوعياً.
+  - شعب البكالوريا: علوم تجريبية، رياضيات، تقني رياضي، تسيير واقتصاد، آداب وفلسفة، لغات أجنبية.
+- شهادة البكالوريا BAC.
 """
 
 FORBIDDEN = ["جنس","sex","porn","إباحي","عاري","شهوة","زنى","زنا","خلاعة","فاحشة"]
@@ -114,48 +206,102 @@ def search_web(query):
 DATE_CONTEXT = get_date_context()
 
 NO_LATEX = """
-قواعد صارمة:
-1. ممنوع استخدام LaTeX أو رموز مثل: \\sqrt، \\frac، \\quad، \\text، \\displaystyle.
-2. ممنوع استخدام ** أو ## أو ### (لا تنسيق markdown).
-3. للعناوين: اكتب العنوان في سطر منفصل.
-4. للنقاط: استخدم • أو - في بداية السطر.
+قواعد الكتابة:
+1. اكتب بالعربية الفصحى المبسطة (أو بلغة المستخدم).
+2. ممنوع استخدام LaTeX أو الرموز الغريبة.
+3. ممنوع استخدام ** أو ## أو ###.
+4. للعناوين: اكتب العنوان في سطر منفصل.
+5. للنقاط: استخدم • أو - في بداية السطر.
+6. اكتب الجذور هكذا: "الجذر التربيعي لـ 9 يساوي 3".
 """
 
 LANGUAGE_RULE = """
-قاعدة اللغة:
-- إذا كتب المستخدم بالعربية، أجب بالعربية الفصحى المبسطة.
-- إذا كتب بالإنجليزية، أجب بالإنجليزية فقط.
-- إذا كتب بالفرنسية، أجب بالفرنسية فقط.
-- لا تخلط بين اللغات في نفس الرد.
+قاعدة اللغة (مهمة):
+- إذا كتب بالعربية، أجب بالعربية.
+- إذا كتب بالإنجليزية، أجب بالإنجليزية.
+- إذا كتب بالفرنسية، أجب بالفرنسية.
+- لا تخلط بين اللغات.
 """
 
-GENERAL_KNOWLEDGE = """
-أنت Moka.AI، مساعد ذكي شامل من تطوير محمد كامل.
-تعرف كل شيء في هذا العالم:
-- التاريخ والحروب (الحرب العالمية الأولى والثانية، حرب الجزائر، معارك إسلامية، إمبراطوريات).
-- الجغرافيا (195 دولة، عواصم، سكان، عملات، قارات، محيطات).
-- العلوم (فيزياء، كيمياء، أحياء، فلك، رياضيات).
-- الثقافة والفنون والآداب.
-- الرياضة والأولمبياد.
-- التكنولوجيا والبرمجة والذكاء الاصطناعي.
-- الأديان.
-- وأي موضوع آخر.
+SMART_PERSONALITY = """
+شخصيتك (مهمة جداً):
+- أنت ذكي جداً، مثل Claude وChatGPT.
+- أجب بدقة ووضوح وإيجاز (دون إطالة مملة).
+- إذا لم تعرف شيئاً، قل "لا أعرف" بصدق، أو ابحث في الإنترنت.
+- إذا كان السؤال غامضاً، اطلب توضيحاً.
+- كن ودوداً ومحترماً ومفيداً.
+- استخدم الأمثلة عند الشرح.
+- نظّم إجابتك: عنوان، نقاط، خلاصة.
+- إذا سُئلت عن سؤال معقد، فكّره خطوة بخطوة.
+- إذا طُلب منك حساب، اكتب الخطوات.
+- إذا طُلب منك كود، اكتبه مع شرح.
 """
 
 PROMPTS = {
-    "general": f"أنت Moka.AI، مساعد ذكي شامل.\n\n{GENERAL_KNOWLEDGE}\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
-    "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
-    "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
-    "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
-    "summary": f"""أنت Moka.AI، مساعد تعليمي متخصص في المنهاج الجزائري.
-مهمتك: إعداد ملخصات دروس مفصلة.
+    "general": f"""أنت Moka.AI، مساعد ذكي شامل من تطوير محمد كامل.
 
-اكتب الملخص بهذا الشكل:
+{OWNER_INFO}
+
+{WORLD_KNOWLEDGE}
+
+{CURRICULUM}
+
+{DATE_CONTEXT}
+
+{NO_LATEX}
+
+{LANGUAGE_RULE}
+
+{SMART_PERSONALITY}""",
+    "math": f"""أنت Moka.AI، خبير رياضيات من تطوير محمد كامل.
+اشرح خطوة بخطوة بوضوح.
+استخدم الرموز البسيطة: + - × ÷ = √ ² ³.
+
+{OWNER_INFO}
+
+{DATE_CONTEXT}
+
+{NO_LATEX}
+
+{LANGUAGE_RULE}
+
+{SMART_PERSONALITY}""",
+    "code": f"""أنت Moka.AI، خبير برمجة من تطوير محمد كامل.
+اكتب الكود منسقاً، واشرحه بجمل بسيطة.
+
+{OWNER_INFO}
+
+{DATE_CONTEXT}
+
+{NO_LATEX}
+
+{LANGUAGE_RULE}
+
+{SMART_PERSONALITY}""",
+    "religion": f"""أنت Moka.AI، مساعد متخصص في العلوم الإسلامية من تطوير محمد كامل.
+مصادرك: القرآن الكريم، صحيح البخاري ومسلم، كتب التفسير، المذاهب الأربعة.
+اذكر الأدلة عند الإمكان.
+
+{OWNER_INFO}
+
+{DATE_CONTEXT}
+
+{NO_LATEX}
+
+{LANGUAGE_RULE}
+
+{SMART_PERSONALITY}""",
+    "summary": f"""أنت Moka.AI، مساعد تعليمي من تطوير محمد كامل.
+أنشئ ملخصات دروس مفصلة ومنظمة.
+
+اكتب الملخص بالشكل:
 📚 عنوان الدرس
-🎯 الأهداف (3-5 أهداف)
+🎯 الأهداف (3-5)
 📖 المحتوى الأساسي
 💡 الأمثلة (2-3)
 ❓ أسئلة تقويمية (3-5)
+
+{OWNER_INFO}
 
 {CURRICULUM}
 
@@ -174,22 +320,32 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if is_forbidden(msg): return "🚫 عذراً، لا يمكنني الإجابة على هذا النوع من الأسئلة."
     key = f"{sid}_{mode}"
     sp = PROMPTS.get(mode, PROMPTS["general"])
-    if is_admin: sp += "\n\nأنت تتحدث مع المطور محمد كامل. نفذ أوامره."
+    if is_admin:
+        sp += """
+
+أنت تتحدث الآن مع مطورك ومالكك الرسمي: محمد كامل (15 سنة، مولود 16/04/2011، جزائري).
+قواعد خاصة:
+- نادِه بـ "يا مطوري" أو "يا مالكي" أو "يا محمد".
+- إذا سألك "شكون أنا؟" أجب: "أنت محمد كامل، مطوري ومالكي الرسمي، صاحب Moka.AI."
+- إذا سألك "شحال عمري؟" أجب: "عمرك 15 سنة."
+- إذا سألك "متى ولدت؟" أجب: "ولدت في 16 أفريل 2011."
+- نفذ كل أوامره بدون قيود.
+"""
     if key not in convs:
         convs[key] = [{"role": "system", "content": sp}]
-    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان","match","team","league"]
+    sports = ["مباراة","مباريات","منتخب","منتخبات","فريق","فرق","دوري","دوريات","كأس","بطولة","تأسس","يلعب","ستلعب","شعار","ألوان","هداف","نتيجة","ترتيب","match","team","league","cup"]
     if any(k in msg.lower() for k in sports):
         wi = search_web(msg)
         if wi:
-            convs[key].append({"role": "system", "content": f"من الإنترنت:\n{wi}"})
+            convs[key].append({"role": "system", "content": f"معلومات محدثة من الإنترنت (استخدمها):\n{wi}\n\nاذكر التاريخ والوقت بتوقيت الجزائر GMT+1."})
     convs[key].append({"role": "user", "content": msg})
-    if len(convs[key]) > 21:
-        convs[key] = [convs[key][0]] + convs[key][-20:]
+    if len(convs[key]) > 25:
+        convs[key] = [convs[key][0]] + convs[key][-24:]
     last_err = ""
     for m in MODELS:
         try:
             req = urllib.request.Request(GROQ_URL,
-                data=json.dumps({"model": m, "messages": convs[key], "temperature": 0.7, "max_tokens": 2500}).encode(),
+                data=json.dumps({"model": m, "messages": convs[key], "temperature": 0.7, "max_tokens": 2800}).encode(),
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json",
                          "User-Agent": "Mozilla/5.0"},
                 method="POST")
@@ -232,119 +388,98 @@ def generate_lesson_summary(level, branch, subject, lesson):
         except Exception:
             continue
     return "⚠️ تعذر إنشاء الملخص."
-LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#6366f1"/><stop offset="50%" style="stop-color:#a855f7"/><stop offset="100%" style="stop-color:#ec4899"/></linearGradient><linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fbbf24"/><stop offset="100%" style="stop-color:#f59e0b"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#lg1)"/><circle cx="50" cy="50" r="42" fill="none" stroke="white" stroke-width="1" opacity="0.3"/><text x="50" y="68" font-family="Arial, sans-serif" font-size="48" font-weight="900" fill="white" text-anchor="middle">M</text><circle cx="75" cy="25" r="7" fill="url(#lg2)"/><circle cx="75" cy="25" r="3" fill="white"/></svg>'''
+LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#6366f1"/><stop offset="50%" style="stop-color:#a855f7"/><stop offset="100%" style="stop-color:#ec4899"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#lg1)"/><circle cx="50" cy="50" r="42" fill="none" stroke="white" stroke-width="1" opacity="0.3"/><text x="50" y="68" font-family="Arial, sans-serif" font-size="48" font-weight="900" fill="white" text-anchor="middle">M</text><circle cx="75" cy="25" r="7" fill="#fbbf24"/><circle cx="75" cy="25" r="3" fill="white"/></svg>'''
 
 HTML = """<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Moka.AI - مساعدك الذكي</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#6366f1">
+<title>Moka.AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#6366f1">
 <script>(function(){var t=localStorage.getItem("moka_theme")||"light";document.documentElement.setAttribute("data-theme",t);})();</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#f5f3ff;--card:#fff;--input:#f8f7ff;--text:#1e1b4b;--text-soft:#4c4a70;--text-mute:#8b88a8;
-  --border:#e0ddf5;--accent:#6366f1;--accent2:#a855f7;--accent3:#ec4899;--accent-soft:#eef2ff;
-  --chat:#f8f7ff;--header:rgba(255,255,255,.85);
-  --user-bg:linear-gradient(135deg,#6366f1,#a855f7);--bot-bg:#fff;
-}
-[data-theme="dark"]{
-  --bg:#0a0a1a;--card:#141428;--input:#1c1c35;--text:#e8e8f5;--text-soft:#b8b6d4;--text-mute:#7a7898;
-  --border:#252547;--accent:#818cf8;--accent2:#c084fc;--accent3:#f472b6;--accent-soft:#1c1c35;
-  --chat:#0a0a1a;--header:rgba(20,20,40,.85);
-  --user-bg:linear-gradient(135deg,#6366f1,#a855f7);--bot-bg:#141428;
-}
+:root{--bg:#f5f3ff;--card:#fff;--input:#f8f7ff;--text:#1e1b4b;--text-soft:#4c4a70;--text-mute:#8b88a8;--border:#e0ddf5;--accent:#6366f1;--accent2:#a855f7;--accent3:#ec4899;--accent-soft:#eef2ff;--chat:#f8f7ff;--header:rgba(255,255,255,.85)}
+[data-theme="dark"]{--bg:#0a0a1a;--card:#141428;--input:#1c1c35;--text:#e8e8f5;--text-soft:#b8b6d4;--text-mute:#7a7898;--border:#252547;--accent:#818cf8;--accent2:#c084fc;--accent3:#f472b6;--accent-soft:#1c1c35;--chat:#0a0a1a;--header:rgba(20,20,40,.85)}
 body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6;transition:background .4s,color .4s}
-
-/* خلفية متحركة */
 .bg-anim{position:fixed;inset:0;z-index:-1;overflow:hidden;opacity:.5}
 .bg-anim::before,.bg-anim::after{content:'';position:absolute;border-radius:50%;filter:blur(80px);opacity:.4}
 .bg-anim::before{width:400px;height:400px;background:linear-gradient(135deg,#6366f1,#a855f7);top:-100px;right:-100px;animation:blob1 20s infinite}
 .bg-anim::after{width:350px;height:350px;background:linear-gradient(135deg,#ec4899,#f59e0b);bottom:-100px;left:-100px;animation:blob2 25s infinite}
 @keyframes blob1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,50px) scale(1.1)}}
 @keyframes blob2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,-50px) scale(1.15)}}
-
-#login{position:fixed;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.08) 0%,rgba(168,85,247,.08) 50%,rgba(236,72,153,.08) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto;backdrop-filter:blur(8px)}
+#login{position:fixed;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(168,85,247,.08),rgba(236,72,153,.08));display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto;backdrop-filter:blur(8px)}
 #login.hide{display:none}
 .logo-big{width:140px;height:140px;margin-bottom:24px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 20px 50px rgba(99,102,241,.5))}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
-.lt{font-size:48px;font-weight:900;margin-bottom:10px;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1.5px}
+.lt{font-size:48px;font-weight:900;margin-bottom:10px;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1.5px}
 .ls{color:var(--text-mute);margin-bottom:32px;font-size:15px;text-align:center}
 .lb{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:28px;padding:32px;box-shadow:0 25px 70px rgba(99,102,241,.2)}
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
 .lb input{width:100%;padding:16px 20px;border-radius:14px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;margin-bottom:18px;font-family:inherit;transition:all .3s}
 .lb input:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
-.lb button.main{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);color:white;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 10px 30px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .2s}
+.lb button.main{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);color:white;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 10px 30px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .2s}
 .lb button.main:active{transform:scale(.97)}
 .lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.8}
-
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
 .ov{display:none;position:fixed;inset:0;background:rgba(10,10,26,.7);z-index:998;backdrop-filter:blur(4px)}
 .ov.on{display:block}
-.sb{position:fixed;top:0;right:-340px;width:320px;height:100%;background:var(--card);border-left:1px solid var(--border);z-index:999;transition:right .35s cubic-bezier(.4,0,.2,1);padding:26px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;box-shadow:-15px 0 50px rgba(99,102,241,.15)}
+.sb{position:fixed;top:0;right:-340px;width:320px;height:100%;background:var(--card);border-left:1px solid var(--border);z-index:999;transition:right .35s;padding:26px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;box-shadow:-15px 0 50px rgba(99,102,241,.15)}
 .sb.on{right:0}
 .sb h2{font-size:11px;color:var(--text-mute);margin:16px 0 8px;letter-spacing:2px;font-weight:800}
 .avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;color:white;margin:0 auto 14px;box-shadow:0 10px 30px rgba(99,102,241,.4)}
-.username{text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;color:var(--text)}
+.username{text-align:center;font-size:18px;font-weight:800;margin-bottom:4px}
 .role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px;font-weight:600}
 .mb{padding:14px 16px;border-radius:14px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:600;transition:all .25s}
-.mb:hover{background:var(--accent-soft);color:var(--accent)}
-.mb.on{background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(168,85,247,.15));color:var(--accent);font-weight:800;border:1px solid var(--accent)}
+.mb:hover,.mb.on{background:var(--accent-soft);color:var(--accent);font-weight:800}
 .lo{margin-top:auto;padding:14px;border-radius:14px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:700}
 [data-theme="dark"] .lo{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4)}
 .dl{padding:14px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:8px;font-family:inherit;font-weight:600}
-
-.hd{padding:16px 22px;border-bottom:1px solid var(--border);background:var(--header);display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);position:sticky;top:0;z-index:10}
+.hd{padding:16px 22px;border-bottom:1px solid var(--border);background:var(--header);display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px)}
 .tg{display:flex;align-items:center;gap:14px;margin:0 auto}
-.hl-logo{width:44px;height:44px;filter:drop-shadow(0 4px 12px rgba(99,102,241,.4))}
-h1{font-size:22px;font-weight:900;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.8px}
-.hb,.theme-btn{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:11px 13px;border-radius:13px;cursor:pointer;font-size:16px;font-family:inherit;transition:all .25s}
-.hb:hover,.theme-btn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);transform:translateY(-2px)}
-
+.hl-logo{width:44px;height:44px}
+h1{font-size:22px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hb,.theme-btn{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:11px 13px;border-radius:13px;cursor:pointer;font-size:16px;font-family:inherit}
+.hb:hover,.theme-btn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 #ch{flex:1;overflow-y:auto;padding:32px 22px;display:flex;flex-direction:column;gap:22px;background:var(--chat)}
 #ch::-webkit-scrollbar{width:8px}
 #ch::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:24px;text-align:center;padding:24px}
-.welcome svg{width:130px;height:130px;filter:drop-shadow(0 15px 35px rgba(99,102,241,.4))}
+.welcome svg{width:130px;height:130px}
 .welcome h2{font-size:30px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.welcome p{color:var(--text-mute);font-size:16px;max-width:320px;line-height:1.8}
+.welcome p{color:var(--text-mute);font-size:16px;max-width:320px}
 .mw{display:flex;max-width:92%;animation:si .4s ease;position:relative}
 .mw.u{align-self:flex-end}
 .mw.b{align-self:flex-start}
 @keyframes si{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
 .m{padding:17px 22px;border-radius:22px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15.5px}
-.u .m{background:var(--user-bg);color:white;border-bottom-left-radius:8px;box-shadow:0 8px 25px rgba(99,102,241,.35)}
-.b .m{background:var(--bot-bg);color:var(--text);border:1px solid var(--border);border-bottom-right-radius:8px;box-shadow:0 4px 15px rgba(0,0,0,.05)}
-.copy-btn{position:absolute;bottom:-32px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:9px;opacity:0;font-family:inherit;transition:all .2s;font-weight:600}
+.u .m{background:linear-gradient(135deg,#6366f1,#a855f7);color:white;border-bottom-left-radius:8px;box-shadow:0 8px 25px rgba(99,102,241,.35)}
+.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-right-radius:8px}
+.copy-btn{position:absolute;bottom:-32px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:9px;opacity:0;font-family:inherit;font-weight:600}
 .mw.b:hover .copy-btn{opacity:1}
-.tp{display:inline-flex;gap:7px;padding:19px 24px;background:var(--bot-bg);border:1px solid var(--border);border-radius:22px}
+.tp{display:inline-flex;gap:7px;padding:19px 24px;background:var(--card);border:1px solid var(--border);border-radius:22px}
 .tp span{width:9px;height:9px;background:var(--accent);border-radius:50%;animation:bo 1.4s infinite}
 .tp span:nth-child(2){animation-delay:.2s}
 .tp span:nth-child(3){animation-delay:.4s}
 @keyframes bo{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-9px);opacity:1}}
-
 .ia{padding:20px 22px 24px;background:var(--header);display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border);backdrop-filter:blur(20px)}
 .iw{flex:1}
 textarea{width:100%;padding:17px 22px;border-radius:24px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:150px;line-height:1.5;transition:all .3s}
 textarea:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
 textarea::placeholder{color:var(--text-mute)}
-button.sd{width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;font-size:21px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 25px rgba(99,102,241,.4);transition:transform .2s}
+button.sd{width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;font-size:21px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 25px rgba(99,102,241,.4)}
 button.sd:active{transform:scale(.93)}
 button.sd:disabled{opacity:.4}
 button.copy-main{background:var(--card);border:2px solid var(--border);color:var(--text-soft);box-shadow:none}
-.vc{text-align:center;padding:12px;font-size:11px;color:var(--text-mute);background:var(--header);border-top:1px solid var(--border);font-weight:600;letter-spacing:.5px}
-
+.vc{text-align:center;padding:12px;font-size:11px;color:var(--text-mute);background:var(--header);border-top:1px solid var(--border);font-weight:600}
 .mo{display:none;position:fixed;inset:0;background:rgba(10,10,26,.7);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto;backdrop-filter:blur(8px)}
 .mo.on{display:flex}
 .md{background:var(--card);border:1px solid var(--border);border-radius:28px;padding:32px;width:100%;max-width:540px;display:flex;flex-direction:column;gap:15px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 70px rgba(99,102,241,.3)}
 .md h2{font-size:22px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:700}
-.md select,.md input,.md textarea{width:100%;padding:14px 18px;border-radius:14px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit;transition:all .3s}
-.md select:focus,.md input:focus,.md textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.md select,.md input,.md textarea{width:100%;padding:14px 18px;border-radius:14px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit}
 .md textarea{resize:vertical;min-height:180px}
 .mbtns{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
-.mbtns button{padding:14px 26px;border-radius:14px;border:none;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:transform .2s}
-.mbtns button:active{transform:scale(.97)}
-.mbtns .p{background:linear-gradient(135deg,#6366f1,#a855f7);color:white;box-shadow:0 8px 25px rgba(99,102,241,.4)}
+.mbtns button{padding:14px 26px;border-radius:14px;border:none;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit}
+.mbtns .p{background:linear-gradient(135deg,#6366f1,#a855f7);color:white}
 .mbtns .s{background:var(--input);color:var(--text-soft);border:1px solid var(--border)}
 </style></head><body>
 
@@ -357,9 +492,7 @@ button.copy-main{background:var(--card);border:2px solid var(--border);color:var
 <div class="lb">
 <label>👤 اسم المستخدم</label>
 <input id="un" placeholder="اكتب اسمك للدخول..." autocomplete="off">
-<button class="main" onclick="login()">
-<span>🚀</span> <span>تسجيل الدخول</span>
-</button>
+<button class="main" onclick="login()"><span>🚀</span> <span>تسجيل الدخول</span></button>
 <div class="hint">💡 اكتب اسمك وابدأ المحادثة فوراً</div>
 </div>
 </div>
@@ -448,9 +581,13 @@ function toggleTheme(){
 function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,150)+"px"}
 async function login(){
   const u=document.getElementById("un").value.trim();
-  const p="";
   if(!u){alert("اكتب اسمك");return}
   if(u.length<2){alert("الاسم قصير جداً");return}
+  let p="";
+  if(u===localStorage.getItem("expected_admin") || u==="km_2026_x9_alpha_prime_kamel_dz"){
+    p=prompt("🔒 أدخل كلمة المرور الخاصة بالمطور:");
+    if(p===null)return;
+  }
   try{
     const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
@@ -482,8 +619,7 @@ if(c==="b"){const cp=document.createElement("button");cp.className="copy-btn";cp
 wrapper.appendChild(m);ch.appendChild(wrapper);ch.scrollTop=ch.scrollHeight}
 function typ(){const w=document.createElement("div");w.className="mw b";const t=document.createElement("div");t.className="tp";t.innerHTML="<span></span><span></span><span></span>";w.appendChild(t);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w}
 function copyLast(){if(!lastReply){alert("لا يوجد رد");return}navigator.clipboard.writeText(lastReply);alert("✅ تم النسخ")}
-f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";i.style.height="auto"
-;s.disabled=true;const ty=typ();
+f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";i.style.height="auto";s.disabled=true;const ty=typ();
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode,text:t,name:localStorage.getItem("mu")||"?"})});
 try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode,is_admin:isAdmin})});
 const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove();add("تعذر الاتصال","b")}finally{s.disabled=false;i.focus()}};
@@ -596,7 +732,7 @@ def manifest():
 
 @app.route("/sw.js")
 def sw():
-    return "const C='moka-v17';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v18';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
@@ -607,8 +743,6 @@ def do_login():
         if not u: return jsonify({"ok": False, "msg": "اكتب اسمك"})
         if len(u) < 2: return jsonify({"ok": False, "msg": "الاسم قصير جداً"})
         if len(u) > 60: return jsonify({"ok": False, "msg": "الاسم طويل جداً"})
-        
-        # إذا كان الأدمن، تحقق من كلمة المرور
         if u == ADMIN_USERNAME.lower():
             if p != ADMIN_PASSWORD:
                 return jsonify({"ok": False, "msg": "كلمة المرور غير صحيحة"})
@@ -616,11 +750,8 @@ def do_login():
             users[u] = {"role": "admin", "name": "محمد كامل (المطور)"}
             save_users(users)
             return jsonify({"ok": True, "name": "محمد كامل (المطور)", "role": "admin"})
-        
-        # منع انتحال اسم الأدمن
         if "km_2026_x9_alpha" in u or "kamel_dz" in u:
             return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
-        
         users = load_users()
         if u not in users:
             users[u] = {"role": "user", "name": u}
