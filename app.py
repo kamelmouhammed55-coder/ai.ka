@@ -1,4 +1,4 @@
-# Moka.AI v15.0 - المطور: محمد كامل
+# Moka.AI v17.0 - المطور: محمد كامل
 from flask import Flask, request, jsonify, render_template_string
 import os, json, urllib.request, urllib.error, datetime
 import datetime as _dt
@@ -8,8 +8,11 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"]
 
-ADMIN_KEY = "moka2026kamel"
-ADMIN_USERNAME = "kamel"
+# ============ بيانات الأدمن (صعبة التخمين) ============
+ADMIN_USERNAME = "km_2026_x9_alpha_prime_kamel_dz"
+ADMIN_PASSWORD = "M0k@.AI!2026#Secure$X9_Dz"
+ADMIN_KEY = "moka_X9_kamel_admin_2026_secure"
+
 BLOCKED_IPS = set()
 STATS_FILE = os.path.join(os.path.dirname(__file__), "stats.json")
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
@@ -66,24 +69,15 @@ def get_date_context():
 - اتحاد الجزائر (USMA): أحمر وأسود (1937).
 - مولودية الجزائر (MCA): أحمر وأخضر (1921).
 - شباب بلوزداد (CRB): أحمر وأبيض (1962).
-- وفاق سطيف (ESS): أسود وأبيض (1958).
 - ريال مدريد: أبيض وذهبي (1902).
 - برشلونة: أزرق وأحمر (1899).
 - مانشستر يونايتد: أحمر وأبيض وأسود (1878).
 - ليفربول: أحمر وأبيض (1892).
-- مانشستر سيتي: أزرق سماوي وأبيض (1880).
 - بايرن ميونخ: أحمر وأبيض وأزرق (1900).
 - يوفنتوس: أسود وأبيض (1897).
-- إنتر ميلان: أزرق وأسود (1908).
-- ميلان: أحمر وأسود (1899).
 - الأهلي المصري: أحمر وأبيض (1907).
-- الزمالك: أبيض وأحمر (1911).
 - منتخب الجزائر: أخضر وأبيض وأحمر (1962).
-- منتخب البرازيل: أصفر وأخضر وأزرق (1914).
-- منتخب الأرجنتين: أزرق سماوي وأبيض (1893).
-- منتخب فرنسا: أزرق وأبيض وأحمر (1904).
-- كأس العالم 2026: أمريكا، كندا، المكسيك (جوان-جويلية 2026).
-- كأس أمم أفريقيا 2025: المغرب."""
+- كأس العالم 2026: أمريكا، كندا، المكسيك."""
 
 CURRICULUM = """
 المنهاج الجزائري 2026-2027:
@@ -125,43 +119,43 @@ NO_LATEX = """
 2. ممنوع استخدام ** أو ## أو ### (لا تنسيق markdown).
 3. للعناوين: اكتب العنوان في سطر منفصل.
 4. للنقاط: استخدم • أو - في بداية السطر.
-5. اكتب الجذور: "الجذر التربيعي لـ 9 يساوي 3".
 """
 
 LANGUAGE_RULE = """
-قاعدة اللغة (مهمة جداً):
+قاعدة اللغة:
 - إذا كتب المستخدم بالعربية، أجب بالعربية الفصحى المبسطة.
-- إذا كتب بالإنجليزية (English)، أجب بالإنجليزية فقط.
-- إذا كتب بالفرنسية (Français)، أجب بالفرنسية فقط.
-- إذا كتب بأي لغة أخرى، أجب بنفس تلك اللغة.
+- إذا كتب بالإنجليزية، أجب بالإنجليزية فقط.
+- إذا كتب بالفرنسية، أجب بالفرنسية فقط.
 - لا تخلط بين اللغات في نفس الرد.
 """
 
+GENERAL_KNOWLEDGE = """
+أنت Moka.AI، مساعد ذكي شامل من تطوير محمد كامل.
+تعرف كل شيء في هذا العالم:
+- التاريخ والحروب (الحرب العالمية الأولى والثانية، حرب الجزائر، معارك إسلامية، إمبراطوريات).
+- الجغرافيا (195 دولة، عواصم، سكان، عملات، قارات، محيطات).
+- العلوم (فيزياء، كيمياء، أحياء، فلك، رياضيات).
+- الثقافة والفنون والآداب.
+- الرياضة والأولمبياد.
+- التكنولوجيا والبرمجة والذكاء الاصطناعي.
+- الأديان.
+- وأي موضوع آخر.
+"""
+
 PROMPTS = {
-    "general": f"أنت Moka.AI، مساعد ذكي عربي من تطوير محمد كامل.\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
+    "general": f"أنت Moka.AI، مساعد ذكي شامل.\n\n{GENERAL_KNOWLEDGE}\n\n{CURRICULUM}\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "math": f"أنت Moka.AI، خبير رياضيات. اشرح خطوة بخطوة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "code": f"أنت Moka.AI، خبير برمجة. اكتب الكود واشرحه.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "religion": f"أنت Moka.AI، مساعد في العلوم الإسلامية. اذكر الأدلة من القرآن والسنة.\n\n{DATE_CONTEXT}\n\n{NO_LATEX}\n\n{LANGUAGE_RULE}",
     "summary": f"""أنت Moka.AI، مساعد تعليمي متخصص في المنهاج الجزائري.
-مهمتك: إعداد ملخصات دروس مفصلة ومنظمة.
+مهمتك: إعداد ملخصات دروس مفصلة.
 
-اكتب الملخص بهذا الشكل بالضبط:
+اكتب الملخص بهذا الشكل:
 📚 عنوان الدرس
-
-🎯 الأهداف:
-- هدف 1
-- هدف 2
-- هدف 3
-
-📖 المحتوى الأساسي:
-(شرح مفصل للمفاهيم)
-
-💡 الأمثلة:
-(أمثلة محلولة)
-
-❓ أسئلة تقويمية:
-- سؤال 1
-- سؤال 2
+🎯 الأهداف (3-5 أهداف)
+📖 المحتوى الأساسي
+💡 الأمثلة (2-3)
+❓ أسئلة تقويمية (3-5)
 
 {CURRICULUM}
 
@@ -183,7 +177,7 @@ def ask_ai(msg, sid, mode, is_admin=False):
     if is_admin: sp += "\n\nأنت تتحدث مع المطور محمد كامل. نفذ أوامره."
     if key not in convs:
         convs[key] = [{"role": "system", "content": sp}]
-    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان","match","team","league","cup"]
+    sports = ["مباراة","منتخب","فريق","دوري","كأس","بطولة","تأسس","يلعب","شعار","ألوان","match","team","league"]
     if any(k in msg.lower() for k in sports):
         wi = search_web(msg)
         if wi:
@@ -238,105 +232,135 @@ def generate_lesson_summary(level, branch, subject, lesson):
         except Exception:
             continue
     return "⚠️ تعذر إنشاء الملخص."
-LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="50%" style="stop-color:#5b7cfa"/><stop offset="100%" style="stop-color:#a78bfa"/></linearGradient></defs><polygon points="50,3 88,25 88,75 50,97 12,75 12,25" fill="url(#lg)"/><circle cx="50" cy="50" r="28" fill="white" opacity="0.15"/><text x="50" y="66" font-family="Arial" font-size="42" font-weight="bold" fill="white" text-anchor="middle">M</text><circle cx="72" cy="28" r="6" fill="#fbbf24"/></svg>'''
+LOGO_SVG = '''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#6366f1"/><stop offset="50%" style="stop-color:#a855f7"/><stop offset="100%" style="stop-color:#ec4899"/></linearGradient><linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#fbbf24"/><stop offset="100%" style="stop-color:#f59e0b"/></linearGradient></defs><circle cx="50" cy="50" r="48" fill="url(#lg1)"/><circle cx="50" cy="50" r="42" fill="none" stroke="white" stroke-width="1" opacity="0.3"/><text x="50" y="68" font-family="Arial, sans-serif" font-size="48" font-weight="900" fill="white" text-anchor="middle">M</text><circle cx="75" cy="25" r="7" fill="url(#lg2)"/><circle cx="75" cy="25" r="3" fill="white"/></svg>'''
 
 HTML = """<!doctype html>
 <html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Moka.AI</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#7c3aed">
+<title>Moka.AI - مساعدك الذكي</title><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#6366f1">
 <script>(function(){var t=localStorage.getItem("moka_theme")||"light";document.documentElement.setAttribute("data-theme",t);})();</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#f7f8fc;--card:#fff;--input:#f1f3f9;--text:#1a1f36;--text-soft:#4a5168;--text-mute:#8b91a8;--border:#e4e7f0;--accent:#7c3aed;--accent2:#5b7cfa;--accent-soft:#f3e8ff;--chat:#f7f8fc;--header:#fff}
-[data-theme="dark"]{--bg:#0d0d1a;--card:#16162a;--input:#1e1e35;--text:#e8eaf0;--text-soft:#b8bdc9;--text-mute:#7a8094;--border:#2a2a45;--accent:#a78bfa;--accent2:#7c3aed;--accent-soft:#1e1e35;--chat:#0d0d1a;--header:#16162a}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6;transition:background .3s,color .3s}
-#login{position:fixed;inset:0;background:linear-gradient(135deg,#f3e8ff 0%,#f7f8fc 50%,#eef1ff 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto}
-[data-theme="dark"] #login{background:linear-gradient(135deg,#1a0d2e 0%,#0d0d1a 50%,#0d1a2e 100%)}
+:root{
+  --bg:#f5f3ff;--card:#fff;--input:#f8f7ff;--text:#1e1b4b;--text-soft:#4c4a70;--text-mute:#8b88a8;
+  --border:#e0ddf5;--accent:#6366f1;--accent2:#a855f7;--accent3:#ec4899;--accent-soft:#eef2ff;
+  --chat:#f8f7ff;--header:rgba(255,255,255,.85);
+  --user-bg:linear-gradient(135deg,#6366f1,#a855f7);--bot-bg:#fff;
+}
+[data-theme="dark"]{
+  --bg:#0a0a1a;--card:#141428;--input:#1c1c35;--text:#e8e8f5;--text-soft:#b8b6d4;--text-mute:#7a7898;
+  --border:#252547;--accent:#818cf8;--accent2:#c084fc;--accent3:#f472b6;--accent-soft:#1c1c35;
+  --chat:#0a0a1a;--header:rgba(20,20,40,.85);
+  --user-bg:linear-gradient(135deg,#6366f1,#a855f7);--bot-bg:#141428;
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Tahoma,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;line-height:1.6;transition:background .4s,color .4s}
+
+/* خلفية متحركة */
+.bg-anim{position:fixed;inset:0;z-index:-1;overflow:hidden;opacity:.5}
+.bg-anim::before,.bg-anim::after{content:'';position:absolute;border-radius:50%;filter:blur(80px);opacity:.4}
+.bg-anim::before{width:400px;height:400px;background:linear-gradient(135deg,#6366f1,#a855f7);top:-100px;right:-100px;animation:blob1 20s infinite}
+.bg-anim::after{width:350px;height:350px;background:linear-gradient(135deg,#ec4899,#f59e0b);bottom:-100px;left:-100px;animation:blob2 25s infinite}
+@keyframes blob1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-50px,50px) scale(1.1)}}
+@keyframes blob2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,-50px) scale(1.15)}}
+
+#login{position:fixed;inset:0;background:linear-gradient(135deg,rgba(99,102,241,.08) 0%,rgba(168,85,247,.08) 50%,rgba(236,72,153,.08) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;padding:24px;overflow-y:auto;backdrop-filter:blur(8px)}
 #login.hide{display:none}
-.logo-big{width:130px;height:130px;margin-bottom:20px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 15px 40px rgba(124,58,237,.4))}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.lt{font-size:42px;font-weight:800;margin-bottom:8px;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.ls{color:var(--text-mute);margin-bottom:28px;font-size:14px}
-.lb{width:100%;max-width:400px;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;box-shadow:0 20px 60px rgba(124,58,237,.15)}
+.logo-big{width:140px;height:140px;margin-bottom:24px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 20px 50px rgba(99,102,241,.5))}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
+.lt{font-size:48px;font-weight:900;margin-bottom:10px;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-1.5px}
+.ls{color:var(--text-mute);margin-bottom:32px;font-size:15px;text-align:center}
+.lb{width:100%;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:28px;padding:32px;box-shadow:0 25px 70px rgba(99,102,241,.2)}
 .lb label{display:block;font-size:13px;color:var(--text-soft);margin-bottom:8px;font-weight:600}
-.lb input{width:100%;padding:14px 18px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:14px;font-family:inherit}
-.lb input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
-.lb button.main{width:100%;padding:15px;border-radius:12px;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;box-shadow:0 8px 25px rgba(124,58,237,.4)}
+.lb input{width:100%;padding:16px 20px;border-radius:14px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;margin-bottom:18px;font-family:inherit;transition:all .3s}
+.lb input:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
+.lb button.main{width:100%;padding:17px;border-radius:14px;border:none;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);color:white;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 10px 30px rgba(99,102,241,.5);display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .2s}
+.lb button.main:active{transform:scale(.97)}
 .lb .hint{text-align:center;font-size:12px;color:var(--text-mute);margin-top:16px;line-height:1.8}
-.lb .admin-hint{background:var(--accent-soft);color:var(--accent);padding:10px;border-radius:10px;text-align:center;font-size:12px;margin-top:14px;font-weight:600}
+
 #app{display:none;height:100vh;flex-direction:column}
 #app.on{display:flex}
-.ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:998}
+.ov{display:none;position:fixed;inset:0;background:rgba(10,10,26,.7);z-index:998;backdrop-filter:blur(4px)}
 .ov.on{display:block}
-.sb{position:fixed;top:0;right:-320px;width:300px;height:100%;background:var(--card);border-left:1px solid var(--border);z-index:999;transition:right .3s;padding:24px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.sb{position:fixed;top:0;right:-340px;width:320px;height:100%;background:var(--card);border-left:1px solid var(--border);z-index:999;transition:right .35s cubic-bezier(.4,0,.2,1);padding:26px;display:flex;flex-direction:column;gap:9px;overflow-y:auto;box-shadow:-15px 0 50px rgba(99,102,241,.15)}
 .sb.on{right:0}
-.sb h2{font-size:12px;color:var(--text-mute);margin:14px 0 6px;letter-spacing:1.5px;font-weight:700}
-.avatar{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;color:white;margin:0 auto 12px}
-.username{text-align:center;font-size:17px;font-weight:700;margin-bottom:4px}
-.role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px}
-.mb{padding:13px 16px;border-radius:12px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:500}
-.mb:hover,.mb.on{background:var(--accent-soft);color:var(--accent);font-weight:700}
-.lo{margin-top:auto;padding:13px;border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:600}
+.sb h2{font-size:11px;color:var(--text-mute);margin:16px 0 8px;letter-spacing:2px;font-weight:800}
+.avatar{width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;color:white;margin:0 auto 14px;box-shadow:0 10px 30px rgba(99,102,241,.4)}
+.username{text-align:center;font-size:18px;font-weight:800;margin-bottom:4px;color:var(--text)}
+.role{text-align:center;font-size:12px;color:var(--text-mute);margin-bottom:24px;font-weight:600}
+.mb{padding:14px 16px;border-radius:14px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;text-align:right;font-size:14px;display:flex;align-items:center;gap:12px;font-family:inherit;font-weight:600;transition:all .25s}
+.mb:hover{background:var(--accent-soft);color:var(--accent)}
+.mb.on{background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(168,85,247,.15));color:var(--accent);font-weight:800;border:1px solid var(--accent)}
+.lo{margin-top:auto;padding:14px;border-radius:14px;border:1px solid #fecaca;background:#fef2f2;color:#dc2626;cursor:pointer;font-size:14px;font-family:inherit;font-weight:700}
 [data-theme="dark"] .lo{background:rgba(220,38,38,.15);border-color:rgba(220,38,38,.4)}
-.dl{padding:13px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:6px;font-family:inherit}
-.hd{padding:16px 20px;border-bottom:1px solid var(--border);background:var(--header);display:flex;align-items:center;justify-content:space-between}
-.tg{display:flex;align-items:center;gap:12px;margin:0 auto}
-.hl-logo{width:42px;height:42px}
-h1{font-size:20px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hb,.theme-btn{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:10px 12px;border-radius:12px;cursor:pointer;font-size:16px;font-family:inherit}
-.hb:hover,.theme-btn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
-#ch{flex:1;overflow-y:auto;padding:28px 20px;display:flex;flex-direction:column;gap:20px;background:var(--chat)}
+.dl{padding:14px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text-soft);cursor:pointer;font-size:14px;margin-top:8px;font-family:inherit;font-weight:600}
+
+.hd{padding:16px 22px;border-bottom:1px solid var(--border);background:var(--header);display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);position:sticky;top:0;z-index:10}
+.tg{display:flex;align-items:center;gap:14px;margin:0 auto}
+.hl-logo{width:44px;height:44px;filter:drop-shadow(0 4px 12px rgba(99,102,241,.4))}
+h1{font-size:22px;font-weight:900;background:linear-gradient(135deg,#6366f1 0%,#a855f7 50%,#ec4899 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.8px}
+.hb,.theme-btn{background:var(--card);border:1px solid var(--border);color:var(--text-soft);padding:11px 13px;border-radius:13px;cursor:pointer;font-size:16px;font-family:inherit;transition:all .25s}
+.hb:hover,.theme-btn:hover{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);transform:translateY(-2px)}
+
+#ch{flex:1;overflow-y:auto;padding:32px 22px;display:flex;flex-direction:column;gap:22px;background:var(--chat)}
 #ch::-webkit-scrollbar{width:8px}
 #ch::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
-.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px;text-align:center;padding:24px}
-.welcome svg{width:120px;height:120px}
-.welcome h2{font-size:26px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.welcome p{color:var(--text-mute);font-size:15px;max-width:300px}
-.mw{display:flex;max-width:92%;animation:si .4s;position:relative}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:24px;text-align:center;padding:24px}
+.welcome svg{width:130px;height:130px;filter:drop-shadow(0 15px 35px rgba(99,102,241,.4))}
+.welcome h2{font-size:30px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.welcome p{color:var(--text-mute);font-size:16px;max-width:320px;line-height:1.8}
+.mw{display:flex;max-width:92%;animation:si .4s ease;position:relative}
 .mw.u{align-self:flex-end}
 .mw.b{align-self:flex-start}
-@keyframes si{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.m{padding:16px 20px;border-radius:20px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
-.u .m{background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;border-bottom-left-radius:6px}
-.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-right-radius:6px}
-.copy-btn{position:absolute;bottom:-30px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:4px 10px;border-radius:8px;opacity:0;font-family:inherit}
+@keyframes si{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.m{padding:17px 22px;border-radius:22px;line-height:1.8;white-space:pre-wrap;word-wrap:break-word;font-size:15.5px}
+.u .m{background:var(--user-bg);color:white;border-bottom-left-radius:8px;box-shadow:0 8px 25px rgba(99,102,241,.35)}
+.b .m{background:var(--bot-bg);color:var(--text);border:1px solid var(--border);border-bottom-right-radius:8px;box-shadow:0 4px 15px rgba(0,0,0,.05)}
+.copy-btn{position:absolute;bottom:-32px;left:0;background:var(--card);border:1px solid var(--border);color:var(--text-mute);cursor:pointer;font-size:11px;padding:5px 12px;border-radius:9px;opacity:0;font-family:inherit;transition:all .2s;font-weight:600}
 .mw.b:hover .copy-btn{opacity:1}
-.tp{display:inline-flex;gap:6px;padding:18px 22px;background:var(--card);border:1px solid var(--border);border-radius:20px}
-.tp span{width:8px;height:8px;background:var(--accent);border-radius:50%;animation:bo 1.4s infinite}
+.tp{display:inline-flex;gap:7px;padding:19px 24px;background:var(--bot-bg);border:1px solid var(--border);border-radius:22px}
+.tp span{width:9px;height:9px;background:var(--accent);border-radius:50%;animation:bo 1.4s infinite}
 .tp span:nth-child(2){animation-delay:.2s}
 .tp span:nth-child(3){animation-delay:.4s}
-@keyframes bo{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-8px);opacity:1}}
-.ia{padding:18px 20px 22px;background:var(--header);display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border)}
+@keyframes bo{0%,60%,100%{transform:translateY(0);opacity:.3}30%{transform:translateY(-9px);opacity:1}}
+
+.ia{padding:20px 22px 24px;background:var(--header);display:flex;gap:12px;align-items:flex-end;border-top:1px solid var(--border);backdrop-filter:blur(20px)}
 .iw{flex:1}
-textarea{width:100%;padding:16px 20px;border-radius:22px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:140px;line-height:1.5}
-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+textarea{width:100%;padding:17px 22px;border-radius:24px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:16px;outline:none;font-family:inherit;resize:none;max-height:150px;line-height:1.5;transition:all .3s}
+textarea:focus{border-color:var(--accent);box-shadow:0 0 0 5px var(--accent-soft)}
 textarea::placeholder{color:var(--text-mute)}
-button.sd{width:52px;height:52px;border-radius:50%;border:none;background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white;font-size:20px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+button.sd{width:54px;height:54px;border-radius:50%;border:none;background:linear-gradient(135deg,#6366f1,#a855f7);color:white;font-size:21px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 25px rgba(99,102,241,.4);transition:transform .2s}
+button.sd:active{transform:scale(.93)}
 button.sd:disabled{opacity:.4}
-button.copy-main{background:var(--card);border:1px solid var(--border);color:var(--text-soft)}
-.vc{text-align:center;padding:10px;font-size:11px;color:var(--text-mute);background:var(--header);border-top:1px solid var(--border)}
-.mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto}
+button.copy-main{background:var(--card);border:2px solid var(--border);color:var(--text-soft);box-shadow:none}
+.vc{text-align:center;padding:12px;font-size:11px;color:var(--text-mute);background:var(--header);border-top:1px solid var(--border);font-weight:600;letter-spacing:.5px}
+
+.mo{display:none;position:fixed;inset:0;background:rgba(10,10,26,.7);z-index:1000;justify-content:center;align-items:center;padding:20px;overflow-y:auto;backdrop-filter:blur(8px)}
 .mo.on{display:flex}
-.md{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:28px;width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow-y:auto}
-.md h2{font-size:20px;font-weight:800;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:600}
-.md select,.md input,.md textarea{width:100%;padding:13px 16px;border-radius:12px;border:1px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit}
+.md{background:var(--card);border:1px solid var(--border);border-radius:28px;padding:32px;width:100%;max-width:540px;display:flex;flex-direction:column;gap:15px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 70px rgba(99,102,241,.3)}
+.md h2{font-size:22px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.md label{font-size:13px;color:var(--text-soft);margin-bottom:6px;display:block;font-weight:700}
+.md select,.md input,.md textarea{width:100%;padding:14px 18px;border-radius:14px;border:2px solid var(--border);background:var(--input);color:var(--text);font-size:15px;outline:none;margin-bottom:10px;font-family:inherit;transition:all .3s}
+.md select:focus,.md input:focus,.md textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .md textarea{resize:vertical;min-height:180px}
 .mbtns{display:flex;gap:12px;justify-content:flex-end;margin-top:8px}
-.mbtns button{padding:13px 24px;border-radius:12px;border:none;cursor:pointer;font-size:14px;font-weight:600;font-family:inherit}
-.mbtns .p{background:linear-gradient(135deg,#7c3aed,#5b7cfa);color:white}
+.mbtns button{padding:14px 26px;border-radius:14px;border:none;cursor:pointer;font-size:14px;font-weight:700;font-family:inherit;transition:transform .2s}
+.mbtns button:active{transform:scale(.97)}
+.mbtns .p{background:linear-gradient(135deg,#6366f1,#a855f7);color:white;box-shadow:0 8px 25px rgba(99,102,241,.4)}
 .mbtns .s{background:var(--input);color:var(--text-soft);border:1px solid var(--border)}
 </style></head><body>
+
+<div class="bg-anim"></div>
 
 <div id="login">
 <div class="logo-big">__LOGO_SVG__</div>
 <div class="lt">Moka.AI</div>
-<div class="ls">مساعدك الذكي من تطوير محمد كامل</div>
+<div class="ls">مساعدك الذكي الشامل من تطوير محمد كامل</div>
 <div class="lb">
 <label>👤 اسم المستخدم</label>
 <input id="un" placeholder="اكتب اسمك للدخول..." autocomplete="off">
-<button class="main" onclick="login()">🚀 دخول</button>
-<div class="hint">💡 أدخل اسمك مباشرة وابدأ المحادثة</div>
-<div class="admin-hint">🔑 حساب المطور: kamel</div>
+<button class="main" onclick="login()">
+<span>🚀</span> <span>تسجيل الدخول</span>
+</button>
+<div class="hint">💡 اكتب اسمك وابدأ المحادثة فوراً</div>
 </div>
 </div>
 
@@ -365,9 +389,9 @@ button.copy-main{background:var(--card);border:1px solid var(--border);color:var
 </div>
 <div id="ch">
 <div class="welcome" id="welcome">
-<div style="width:120px;height:120px">__LOGO_SVG__</div>
+<div style="width:130px;height:130px">__LOGO_SVG__</div>
 <h2>كيف يمكنني مساعدتك؟</h2>
-<p>اسألني أي شيء (عربي/English/Français)</p>
+<p>اسألني أي شيء (عربي / English / Français)</p>
 </div>
 </div>
 <form class="ia" id="f">
@@ -421,13 +445,14 @@ function toggleTheme(){
   localStorage.setItem("moka_theme",nw);
   document.getElementById("themeBtn").textContent = nw==="dark"?"☀️":"🌙";
 }
-function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,140)+"px"}
+function autoResize(t){t.style.height="auto";t.style.height=Math.min(t.scrollHeight,150)+"px"}
 async function login(){
   const u=document.getElementById("un").value.trim();
+  const p="";
   if(!u){alert("اكتب اسمك");return}
   if(u.length<2){alert("الاسم قصير جداً");return}
   try{
-    const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u})});
+    const r=await fetch("/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!d.ok){alert("❌ "+d.msg);return}
     isAdmin=d.role==="admin";
@@ -446,7 +471,7 @@ function openS(){document.getElementById("sb").classList.add("on");document.getE
 function closeS(){document.getElementById("sb").classList.remove("on");document.getElementById("ov").classList.remove("on")}
 function sw(m){mode=m;document.querySelectorAll(".mb").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
 const names={general:"🧠 العامة",math:"📐 الرياضيات",code:"💻 البرمجة",religion:"🕌 الدينية"};
-ch.innerHTML='<div class="welcome"><div style="width:120px;height:120px">__LOGO_SVG__</div><h2>'+names[m]+'</h2><p>كيف يمكنني مساعدتك؟</p></div>';closeS()}
+ch.innerHTML='<div class="welcome"><div style="width:130px;height:130px">__LOGO_SVG__</div><h2>'+names[m]+'</h2><p>كيف يمكنني مساعدتك؟</p></div>';closeS()}
 window.onload=()=>{const n=localStorage.getItem("mu");const r=localStorage.getItem("mrole");
 if(n&&r){isAdmin=r==="admin";show(n,r)}}
 let v=localStorage.getItem("mv");v=v?parseInt(v)+1:1;localStorage.setItem("mv",v);document.getElementById("vc").textContent=v;
@@ -457,7 +482,8 @@ if(c==="b"){const cp=document.createElement("button");cp.className="copy-btn";cp
 wrapper.appendChild(m);ch.appendChild(wrapper);ch.scrollTop=ch.scrollHeight}
 function typ(){const w=document.createElement("div");w.className="mw b";const t=document.createElement("div");t.className="tp";t.innerHTML="<span></span><span></span><span></span>";w.appendChild(t);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w}
 function copyLast(){if(!lastReply){alert("لا يوجد رد");return}navigator.clipboard.writeText(lastReply);alert("✅ تم النسخ")}
-f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";i.style.height="auto";s.disabled=true;const ty=typ();
+f.onsubmit=async(e)=>{e.preventDefault();const t=i.value.trim();if(!t)return;add(t,"u");i.value="";i.style.height="auto"
+;s.disabled=true;const ty=typ();
 fetch("/track",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"message",mode:mode,text:t,name:localStorage.getItem("mu")||"?"})});
 try{const r=await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:t,session_id:sid,mode:mode,is_admin:isAdmin})});
 const d=await r.json();ty.remove();add(d.reply||"خطأ","b")}catch(e){ty.remove();add("تعذر الاتصال","b")}finally{s.disabled=false;i.focus()}};
@@ -515,31 +541,31 @@ HTML = HTML.replace("__LOGO_SVG__", LOGO_SVG)
 ADMIN_HTML = """<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>لوحة التحكم</title>
 <style>
-body{background:#f7f8fc;color:#1a1f36;font-family:Tahoma,sans-serif;padding:24px;line-height:1.6}
-h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#7c3aed,#5b7cfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+body{background:#f5f3ff;color:#1e1b4b;font-family:Tahoma,sans-serif;padding:24px;line-height:1.6}
+h1{text-align:center;margin-bottom:24px;background:linear-gradient(135deg,#6366f1,#a855f7,#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin-bottom:24px}
-.card{background:#fff;border:1px solid #e4e7f0;border-radius:14px;padding:22px;text-align:center}
-.card .num{font-size:34px;font-weight:bold;color:#7c3aed;margin-bottom:6px}
-.card .lbl{font-size:13px;color:#8b91a8}
-.box{background:#fff;border:1px solid #e4e7f0;border-radius:14px;padding:22px;margin-bottom:24px}
-.box h2{font-size:16px;margin-bottom:16px;color:#7c3aed}
-.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e4e7f0;font-size:13px;gap:10px;flex-wrap:wrap}
-.mode-bar{display:flex;justify-content:space-between;padding:12px;background:#f7f8fc;border-radius:10px;margin-bottom:10px}
-.msg-item{background:#f7f8fc;border-radius:10px;padding:14px;margin-bottom:12px;border-right:3px solid #7c3aed}
-.msg-item .meta{color:#8b91a8;font-size:11px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap}
+.card{background:#fff;border:1px solid #e0ddf5;border-radius:16px;padding:22px;text-align:center;box-shadow:0 8px 25px rgba(99,102,241,.08)}
+.card .num{font-size:34px;font-weight:bold;color:#6366f1;margin-bottom:6px}
+.card .lbl{font-size:13px;color:#8b88a8}
+.box{background:#fff;border:1px solid #e0ddf5;border-radius:16px;padding:22px;margin-bottom:24px;box-shadow:0 8px 25px rgba(99,102,241,.08)}
+.box h2{font-size:16px;margin-bottom:16px;color:#6366f1}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e0ddf5;font-size:13px;gap:10px;flex-wrap:wrap}
+.mode-bar{display:flex;justify-content:space-between;padding:12px;background:#f5f3ff;border-radius:10px;margin-bottom:10px}
+.msg-item{background:#f5f3ff;border-radius:10px;padding:14px;margin-bottom:12px;border-right:3px solid #6366f1}
+.msg-item .meta{color:#8b88a8;font-size:11px;margin-bottom:8px;display:flex;gap:12px;flex-wrap:wrap}
 .block-btn{background:#dc2626;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none}
-.unblock-btn{background:#7c3aed;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;margin-right:6px}
+.unblock-btn{background:#6366f1;color:white;border:none;padding:5px 10px;border-radius:6px;cursor:pointer;font-size:11px;text-decoration:none;margin-right:6px}
 </style></head><body>
 <h1>📊 لوحة تحكم Moka.AI</h1>
 <div class="grid">
 <div class="card"><div class="num">{{s.visitors}}</div><div class="lbl">👁️ الزوار</div></div>
 <div class="card"><div class="num">{{s.logins}}</div><div class="lbl">🔑 تسجيلات</div></div>
 <div class="card"><div class="num">{{s.messages}}</div><div class="lbl">💬 رسائل</div></div>
-<div class="card"><div class="num">{{users_count}}</div><div class="lbl">👥 حسابات</div></div>
+<div class="card"><div class="num">{{users_count}}</div><div class="lbl">👥 مستخدمون</div></div>
 </div>
 <div class="box"><h2>👥 قائمة المستخدمين</h2>
 {% for u, info in users.items() %}
-<div class="row"><span>👤 <b>{{info.name}}</b></span><span style="color:#8b91a8">{{info.role}}</span></div>
+<div class="row"><span>👤 <b>{{info.name}}</b></span><span style="color:#8b88a8">{{info.role}}</span></div>
 {% endfor %}
 </div>
 <div class="box"><h2>📈 استخدام النماذج</h2>
@@ -551,11 +577,11 @@ h1{text-align:center;margin-bottom:24px;background:linear-gradient(90deg,#7c3aed
 <div class="box"><h2>💬 آخر 50 رسالة</h2>
 {% if s.messages_log %}{% for m in s.messages_log[-50:]|reverse %}
 <div class="msg-item"><div class="meta"><span>👤 <b>{{m.name}}</b></span><span>📱 {{m.ip}}</span><span>🧠 {{m.mode}}</span><span>🕐 {{m.time}}</span></div><div>💬 {{m.text}}</div></div>
-{% endfor %}{% else %}<p style="text-align:center;color:#8b91a8;">لا توجد رسائل بعد.</p>{% endif %}
+{% endfor %}{% else %}<p style="text-align:center;color:#8b88a8;">لا توجد رسائل بعد.</p>{% endif %}
 </div>
 <div class="box"><h2>🕐 آخر 20 زيارة</h2>
 {% for r in s.recent[-20:]|reverse %}
-<div class="row"><span>👤 {{r.name}}</span><span style="color:#8b91a8">{{r.ip}}</span><span style="color:#8b91a8">{{r.time}}</span>
+<div class="row"><span>👤 {{r.name}}</span><span style="color:#8b88a8">{{r.ip}}</span><span style="color:#8b88a8">{{r.time}}</span>
 <a href="/block/{{r.ip}}?key={{key}}" class="block-btn">🚫</a><a href="/unblock/{{r.ip}}?key={{key}}" class="unblock-btn">✅</a></div>
 {% endfor %}</div>
 </body></html>"""
@@ -566,23 +592,38 @@ def home(): return render_template_string(HTML)
 @app.route("/manifest.json")
 def manifest():
     return {"name":"Moka.AI","short_name":"Moka.AI","start_url":"/","display":"standalone",
-            "background_color":"#f7f8fc","theme_color":"#7c3aed","orientation":"portrait","lang":"ar","dir":"rtl"}
+            "background_color":"#f5f3ff","theme_color":"#6366f1","orientation":"portrait","lang":"ar","dir":"rtl"}
 
 @app.route("/sw.js")
 def sw():
-    return "const C='moka-v15';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
+    return "const C='moka-v17';self.addEventListener('install',e=>self.skipWaiting());self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))));", 200, {'Content-Type': 'application/javascript'}
 
 @app.post("/login")
 def do_login():
     try:
         d = request.get_json(silent=True) or {}
         u = d.get("username", "").strip().lower()
+        p = d.get("password", "").strip()
         if not u: return jsonify({"ok": False, "msg": "اكتب اسمك"})
         if len(u) < 2: return jsonify({"ok": False, "msg": "الاسم قصير جداً"})
+        if len(u) > 60: return jsonify({"ok": False, "msg": "الاسم طويل جداً"})
+        
+        # إذا كان الأدمن، تحقق من كلمة المرور
+        if u == ADMIN_USERNAME.lower():
+            if p != ADMIN_PASSWORD:
+                return jsonify({"ok": False, "msg": "كلمة المرور غير صحيحة"})
+            users = load_users()
+            users[u] = {"role": "admin", "name": "محمد كامل (المطور)"}
+            save_users(users)
+            return jsonify({"ok": True, "name": "محمد كامل (المطور)", "role": "admin"})
+        
+        # منع انتحال اسم الأدمن
+        if "km_2026_x9_alpha" in u or "kamel_dz" in u:
+            return jsonify({"ok": False, "msg": "هذا الاسم محجوز"})
+        
         users = load_users()
-        # إذا كان مستخدم جديد، أضفه
         if u not in users:
-            users[u] = {"role": "admin" if u == ADMIN_USERNAME else "user", "name": u}
+            users[u] = {"role": "user", "name": u}
             save_users(users)
         role = users[u].get("role", "user")
         return jsonify({"ok": True, "name": users[u].get("name", u), "role": role})
