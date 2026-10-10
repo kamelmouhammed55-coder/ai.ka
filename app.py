@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Moka AI v37.0 — المطور: محمد كامل
-import os, re, json, time, hashlib, secrets, random
+# Moka AI v39.0 — مجاني بالكامل — المطور: محمد كامل
+import os, re, json, time, hashlib, secrets
 import urllib.parse, urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 from functools import wraps
@@ -16,7 +16,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
-app.permanent_session_lifetime = timedelta(days=30)
+app.permanent_session_lifetime = timedelta(days=90)
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "kameladmin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "KamelDz2026Prime")
@@ -36,12 +36,10 @@ OR_MODELS = ["google/gemini-2.0-flash-exp:free",
 DATA_DIR = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 STATS_FILE = os.path.join(DATA_DIR, "stats.json")
-TOKENS_FILE = os.path.join(DATA_DIR, "tokens.json")
 
 RATE_LIMITS = defaultdict(list)
 SESSIONS = {}
 
-# ============ أدوات ============
 def load_json(p, d):
     try:
         with open(p, "r", encoding="utf-8") as f: return json.load(f)
@@ -63,8 +61,6 @@ if ADMIN_USERNAME not in USERS:
         "created": datetime.now().isoformat()}
     save_json(USERS_FILE, USERS)
 
-TOKENS = load_json(TOKENS_FILE, {})  # {token: {user, expires}}
-
 DEFAULT_STATS = {"visitors":0,"logins":0,"messages":0,"images_generated":0,
     "voice_used":0,"books_generated":0,"ratings_up":0,"ratings_down":0,
     "modes":{m:0 for m in ["general","write","code","math","translate",
@@ -73,7 +69,6 @@ STATS = {**DEFAULT_STATS, **load_json(STATS_FILE, {})}
 for m in DEFAULT_STATS["modes"]: STATS["modes"].setdefault(m, 0)
 def save_stats(): save_json(STATS_FILE, STATS)
 def save_users(): save_json(USERS_FILE, USERS)
-def save_tokens(): save_json(TOKENS_FILE, TOKENS)
 
 def get_ip():
     return (request.headers.get("X-Forwarded-For", request.remote_addr or "?")
@@ -87,7 +82,7 @@ def date_ctx():
          "سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     return f"{d.day} {m[d.month-1]} {d.year}"
 
-def rate_limit(max_c=30, win=60):
+def rate_limit(max_c=100, win=60):
     def dec(fn):
         @wraps(fn)
         def w(*a, **k):
@@ -103,27 +98,18 @@ def rate_limit(max_c=30, win=60):
 def login_required(fn):
     @wraps(fn)
     def w(*a, **k):
-        # جرب session أو token
-        if session.get("user"): return fn(*a, **k)
-        tok = request.headers.get("X-Auth-Token") or request.cookies.get("moka_token")
-        if tok and tok in TOKENS:
-            info = TOKENS[tok]
-            if info.get("exp", 0) > time.time():
-                session.permanent = True
-                session["user"] = info["user"]
-                session["role"] = info["role"]
-                session["name"] = info["name"]
-                return fn(*a, **k)
-        if request.path.startswith("/api"):
-            return jsonify({"ok": False, "msg": "غير مسجل"}), 401
-        return redirect(url_for("index"))
+        if not session.get("user"):
+            if request.path.startswith("/api"):
+                return jsonify({"ok": False, "msg": "غير مسجل"}), 401
+            return redirect(url_for("index"))
+        return fn(*a, **k)
     return w
 
 def search_wiki(q):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(q) + "&format=json&utf8=1&srlimit=1")
-        r = urllib.request.Request(url, headers={"User-Agent":"Moka/37"})
+        r = urllib.request.Request(url, headers={"User-Agent":"Moka/39"})
         with urllib.request.urlopen(r, timeout=8) as x:
             d = json.loads(x.read().decode())
         h = d.get("query",{}).get("search",[])
@@ -131,34 +117,30 @@ def search_wiki(q):
         t = h[0]["title"]
         u2 = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
               + urllib.parse.quote(t))
-        r2 = urllib.request.Request(u2, headers={"User-Agent":"Moka/37"})
+        r2 = urllib.request.Request(u2, headers={"User-Agent":"Moka/39"})
         with urllib.request.urlopen(r2, timeout=8) as x2:
             s = json.loads(x2.read().decode())
         return f"({t}): {s.get('extract','')[:500]}" if s.get("extract") else None
     except: return None
 
 # ============ هوية ============
-BAD_WORDS = ["ChatGPT","chatgpt","Chat GPT","chat gpt","OpenAI","openai",
-    "GPT-4","GPT-3","GPT4","GPT3","gpt-4","gpt-3","Gemini","gemini",
-    "Anthropic","Claude","claude","DeepSeek","deepseek","Qwen","qwen",
-    "Mistral","mistral","Grok","grok","Pollinations","pollinations",
-    "Meta AI","meta ai","LLaMA","llama","LLM","نموذج لغوي"]
+BAD_WORDS = ["ChatGPT","chatgpt","Chat GPT","OpenAI","openai","GPT-4","GPT-3",
+    "gpt-4","gpt-3","Gemini","gemini","Anthropic","Claude","claude",
+    "DeepSeek","deepseek","Qwen","qwen","Mistral","mistral","Grok","grok",
+    "Pollinations","pollinations","Meta AI","meta ai","LLaMA","llama"]
 
 def build_sys(mode, admin=False):
-    note = ""
-    if admin:
-        note = "\n[هذا المستخدم هو محمد كامل مطورك. رحب به: أهلاً محمد! كيف حالك؟ 👑]"
+    note = "\n[هذا المستخدم هو محمد كامل مطورك. رحب به: أهلاً محمد! 👑]" if admin else ""
     rules = """قواعد إلزامية:
 - أنت Moka AI، طوّرك محمد كامل.
 - "من صنعك؟" → "طوّرني محمد كامل."
-- ⚠️ ممنوع ذكر: ChatGPT, GPT, OpenAI, Gemini, Claude, Llama, Qwen, DeepSeek, Grok, Mistral, أي شركة أو نموذج.
-- لا تعترف أبدًا بأنك من OpenAI أو أي شركة.
-- إذا سُئلت عن نموذجك قل: "تقنية Moka AI الداخلية."
+- ممنوع ذكر: ChatGPT, GPT, OpenAI, Gemini, Claude, Llama, Qwen, DeepSeek, Grok, Mistral.
+- لا تعترف بأي شركة أخرى. إذا سُئلت عن نموذجك: "تقنية Moka AI."
 - رفض المحتوى الجنسي والعنيف.
-- اجب بنفس لغة السؤال باختصار ووضوح.
+- اجب بنفس لغة السؤال.
 - استخدم **غامق** و - للقوائم."""
     modes = {"general":"مساعد عام","write":"كاتب محترف","code":"مهندس برمجيات",
-        "math":"خبير رياضيات","translate":"مترجم محترف","summary":"خبير تلخيص",
+        "math":"خبير رياضيات","translate":"مترجم","summary":"خبير تلخيص",
         "religion":"مساعد إسلامي","science":"عالم"}
     return f"أنت {modes.get(mode,'مساعد')}.\n{rules}{note}\nاليوم: {date_ctx()}"
 
@@ -166,9 +148,8 @@ def clean_reply(t):
     t = t.replace("\\(", "").replace("\\)", "")
     t = t.replace("\\[", "").replace("\\]", "")
     t = t.replace("\\sqrt", "√").replace("\\frac", "")
-    for w in BAD_WORDS:
-        t = t.replace(w, "Moka AI")
-    t = t.replace("Moka AI AI", "Moka AI").replace("Moka AI، Moka AI", "Moka AI")
+    for w in BAD_WORDS: t = t.replace(w, "Moka AI")
+    t = t.replace("Moka AI AI", "Moka AI")
     return t.strip()
 
 # ============ مزودات AI ============
@@ -212,9 +193,9 @@ def call_or(full, mt):
             print(f"[OR] {type(e).__name__}", flush=True)
     return None
 
-def call_poll(full, mt=1500):
+def call_poll_post(full, mt=1500):
     try:
-        print("[Poll] trying", flush=True)
+        print("[PollPOST] trying", flush=True)
         p = json.dumps({"model":"openai","messages":full,"max_tokens":mt}).encode()
         r = urllib.request.Request("https://text.pollinations.ai/openai",
             data=p, headers={"Content-Type":"application/json",
@@ -222,40 +203,49 @@ def call_poll(full, mt=1500):
         with urllib.request.urlopen(r, timeout=60) as x:
             d = json.loads(x.read().decode())
         rep = d["choices"][0]["message"]["content"].strip()
-        if rep: print("[Poll] OK", flush=True); return rep
+        if rep: print("[PollPOST] OK", flush=True); return rep
     except Exception as e:
-        print(f"[Poll] {type(e).__name__}", flush=True)
+        print(f"[PollPOST] {type(e).__name__}", flush=True)
+    return None
+
+def call_poll_get(prompt_txt):
+    try:
+        print("[PollGET] trying", flush=True)
+        txt = urllib.parse.quote(prompt_txt[:700])
+        url = f"https://text.pollinations.ai/{txt}?model=openai&seed={int(time.time())}"
+        r = urllib.request.Request(url, headers={"User-Agent":"MokaAI"})
+        with urllib.request.urlopen(r, timeout=60) as x:
+            rep = x.read().decode("utf-8").strip()
+        if rep: print("[PollGET] OK", flush=True); return rep
+    except Exception as e:
+        print(f"[PollGET] {type(e).__name__}", flush=True)
     return None
 
 def call_ai(msgs, mode="general", mt=1500, admin=False):
     full = [{"role":"system","content":build_sys(mode,admin)}] + msgs[-20:]
-    for fn in (call_groq, call_or, call_poll):
-        r = fn(full, mt)
-        if r: return clean_reply(r)
-    return "⚠️ الخدمة مشغولة. حاول بعد قليل."
+    r = call_groq(full, mt)
+    if r: return clean_reply(r)
+    r = call_or(full, mt)
+    if r: return clean_reply(r)
+    r = call_poll_post(full, mt)
+    if r: return clean_reply(r)
+    prompt_txt = full[0]["content"][:250] + "\n\n"
+    prompt_txt += "\n".join([m["content"][:200] for m in full[1:]])
+    r = call_poll_get(prompt_txt)
+    if r: return clean_reply(r)
+    return "⚠️ الخدمة مشغولة. حاول بعد دقيقة."
 
 # ============ Auth ============
 def verify_google(tok):
     try:
         u = f"https://oauth2.googleapis.com/tokeninfo?id_token={tok}"
-        r = urllib.request.Request(u, headers={"User-Agent":"Moka/37"})
+        r = urllib.request.Request(u, headers={"User-Agent":"Moka/39"})
         with urllib.request.urlopen(r, timeout=10) as x:
             d = json.loads(x.read().decode())
         return {"email": d.get("email","").lower(),
                 "name": d.get("name",""),
                 "picture": d.get("picture","")}
     except: return None
-
-def issue_token(user, role, name):
-    tok = secrets.token_urlsafe(32)
-    TOKENS[tok] = {"user": user, "role": role, "name": name,
-                   "exp": time.time() + 30*24*3600}
-    # نظّف التوكنات المنتهية
-    now = time.time()
-    for k in list(TOKENS):
-        if TOKENS[k].get("exp", 0) < now: del TOKENS[k]
-    save_tokens()
-    return tok
 
 @app.route("/api/google-login", methods=["POST"])
 def g_login():
@@ -284,12 +274,8 @@ def g_login():
     session["sid"] = secrets.token_hex(8)
     STATS["logins"] = STATS.get("logins",0)+1
     save_stats()
-    auth_tok = issue_token(email, session["role"], name)
-    resp = jsonify({"ok":True,"name":name,"email":email,
-        "role":session["role"],"is_admin":is_admin,"token":auth_tok})
-    resp.set_cookie("moka_token", auth_tok, max_age=30*24*3600,
-                    httponly=False, samesite="Lax")
-    return resp
+    return jsonify({"ok":True,"name":name,"email":email,
+        "role":session["role"],"is_admin":is_admin})
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
@@ -306,35 +292,20 @@ def api_login():
     session["sid"] = secrets.token_hex(8)
     STATS["logins"] = STATS.get("logins",0)+1
     save_stats()
-    auth_tok = issue_token(u, user["role"], user["name"])
-    resp = jsonify({"ok":True,"name":user["name"],"role":user["role"],
-        "token":auth_tok})
-    resp.set_cookie("moka_token", auth_tok, max_age=30*24*3600,
-                    httponly=False, samesite="Lax")
-    return resp
+    return jsonify({"ok":True,"name":user["name"],"role":user["role"]})
 
 @app.route("/api/me")
 def api_me():
-    if session.get("user"):
-        return jsonify({"ok":True,"name":session.get("name"),
-            "email":session.get("user"),"role":session.get("role"),
-            "picture":session.get("picture","")})
-    tok = request.cookies.get("moka_token")
-    if tok and tok in TOKENS and TOKENS[tok].get("exp",0) > time.time():
-        i = TOKENS[tok]
-        return jsonify({"ok":True,"name":i["name"],"email":i["user"],
-            "role":i["role"]})
-    return jsonify({"ok":False}), 401
+    if not session.get("user"): return jsonify({"ok":False}), 401
+    return jsonify({"ok":True,"name":session.get("name"),
+        "email":session.get("user"),"role":session.get("role"),
+        "picture":session.get("picture","")})
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
-    tok = request.cookies.get("moka_token")
-    if tok and tok in TOKENS: del TOKENS[tok]; save_tokens()
     session.clear()
-    resp = jsonify({"ok":True}); resp.delete_cookie("moka_token")
-    return resp
+    return jsonify({"ok":True})
 
-# ============ صفحات ============
 @app.route("/")
 def index():
     STATS["visitors"] = STATS.get("visitors",0)+1
@@ -355,10 +326,9 @@ def sw():
 def icon():
     return Response(ICON, mimetype="image/svg+xml")
 
-# ============ Chat ============
 @app.route("/api/chat", methods=["POST"])
 @login_required
-@rate_limit(max_c=30, win=60)
+@rate_limit(max_c=100, win=60)
 def api_chat():
     d = request.get_json(silent=True) or {}
     msg = (d.get("message") or "").strip()
@@ -370,13 +340,11 @@ def api_chat():
                     "summary","religion","science"]: mode = "general"
     ml = msg.lower().strip()
 
-    # ردود ثابتة
     if any(p in ml for p in ["من صنعك","من طورك","من أنشأك","من برمجك",
         "من هو مطورك","من المطور","من صانعك","who made you","who created"]):
         return jsonify({"reply":"طوّرني **محمد كامل** 🇩🇿\n\nأنا **Moka AI**."})
-    if any(p in ml for p in ["هل انت chatgpt","هل أنت chatgpt","are you chatgpt",
-        "هل انت gpt","هل انت جيميناي","are you gemini","هل انت openai"]):
-        return jsonify({"reply":"لا، أنا **Moka AI**، مساعد ذكي من تطوير محمد كامل. لا علاقة لي بأي شركة أخرى."})
+    if any(p in ml for p in ["هل انت chatgpt","are you chatgpt","هل انت gpt","are you gemini"]):
+        return jsonify({"reply":"لا، أنا **Moka AI**، من تطوير محمد كامل. لا علاقة لي بأي شركة أخرى."})
     if is_admin:
         if any(p in ml for p in ["مرحبا","السلام عليكم","اهلا","هاي","hi","hello"]):
             return jsonify({"reply":"أهلاً **محمد** 👑\n\nكيف أساعدك؟"})
@@ -386,7 +354,7 @@ def api_chat():
     # صورة
     if msg.startswith("/صورة ") or msg.startswith("/image "):
         p = msg.split(" ",1)[1].strip()
-        if not p: return jsonify({"reply":"اكتب وصفًا بعد /صورة"})
+        if not p: return jsonify({"reply":"اكتب وصفًا"})
         bad = ["جنس","عاري","إباحي","sex","porn","nude","naked","nsfw",
                "girl","woman","man","امرأة","رجل","فتاة","شاب","شخص"]
         if any(w in p.lower() for w in bad):
@@ -401,14 +369,14 @@ def api_chat():
     # كتاب
     if msg.startswith("/كتاب ") or msg.startswith("/book "):
         topic = msg.split(" ",1)[1].strip()
-        if not topic: return jsonify({"reply":"اكتب موضوعًا بعد /كتاب"})
+        if not topic: return jsonify({"reply":"اكتب موضوعًا"})
         STATS["books_generated"] = STATS.get("books_generated",0)+1
         save_stats()
         toc = call_ai([{"role":"user","content":
             f"اكتب فهرسًا لكتاب عن: {topic}. 3 فصول مع 3 عناوين فرعية."}],
             "write", 500, is_admin)
         out = f"# 📖 {topic}\n\n## 📋 الفهرس\n\n{toc}\n\n---\n\n"
-        for i, t in enumerate(["الفصل الأول","الفصل الثاني","الفصل الثالث"], 1):
+        for t in ["الفصل الأول","الفصل الثاني","الفصل الثالث"]:
             ch = call_ai([{"role":"user","content":
                 f"اكتب {t} من كتاب عن: {topic}. 400 كلمة."}], "write", 1500, is_admin)
             out += f"## {t}\n\n{ch}\n\n---\n\n"
@@ -442,15 +410,13 @@ def rate():
     d = request.get_json(silent=True) or {}
     if d.get("rating") == "up": STATS["ratings_up"] = STATS.get("ratings_up",0)+1
     elif d.get("rating") == "down": STATS["ratings_down"] = STATS.get("ratings_down",0)+1
-    save_stats()
-    return jsonify({"ok":True})
+    save_stats(); return jsonify({"ok":True})
 
 @app.route("/api/voice_used", methods=["POST"])
 @login_required
 def voice_used():
     STATS["voice_used"] = STATS.get("voice_used",0)+1
-    save_stats()
-    return jsonify({"ok":True})
+    save_stats(); return jsonify({"ok":True})
 
 @app.route("/api/tts")
 def tts():
@@ -479,7 +445,6 @@ def admin():
 @app.route("/health")
 def health(): return jsonify({"status":"ok"})
 
-# ============ PWA ============
 MANIFEST = json.dumps({"name":"Moka AI","short_name":"Moka AI",
     "description":"مساعد ذكي من تطوير محمد كامل",
     "start_url":"/","display":"standalone",
@@ -490,7 +455,7 @@ MANIFEST = json.dumps({"name":"Moka AI","short_name":"Moka AI",
         {"src":"/icon.svg","sizes":"512x512","type":"image/svg+xml","purpose":"maskable"}]},
     ensure_ascii=False)
 
-SW_JS = """const C="moka-v37";
+SW_JS = """const C="moka-v39";
 self.addEventListener("install",()=>self.skipWaiting());
 self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
 self.addEventListener("fetch",e=>{
@@ -506,18 +471,12 @@ ICON = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
 <defs>
 <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
 <stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#991b1b"/>
-</linearGradient>
-<linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
-<stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1e3a8a"/>
 </linearGradient></defs>
 <rect width="512" height="512" rx="128" fill="#0a0a14"/>
-<rect x="24" y="24" width="464" height="464" rx="112" fill="none"
-  stroke="url(#g1)" stroke-width="3" opacity="0.4"/>
 <path d="M 128 380 L 128 150 L 200 150 L 256 260 L 312 150 L 384 150 L 384 380
   L 320 380 L 320 250 L 270 340 L 242 340 L 192 250 L 192 380 Z" fill="url(#g1)"/>
-<circle cx="400" cy="100" r="22" fill="url(#g2)"/>
+<circle cx="400" cy="100" r="22" fill="#fbbf24"/>
 <circle cx="400" cy="100" r="10" fill="#fff"/>
-<circle cx="112" cy="412" r="14" fill="#fbbf24"/>
 </svg>"""
 
 HTML_APP = r'''<!DOCTYPE html>
@@ -536,11 +495,8 @@ HTML_APP = r'''<!DOCTYPE html>
 :root{--bg:#0a0a14;--card:#181828;--card2:#1f1f33;--border:#2a2a45;
 --text:#eaeaf5;--muted:#8a8aa8;--red:#dc2626;
 --grad:linear-gradient(135deg,#dc2626,#1e3a8a)}
-[data-theme="light"]{--bg:#f5f5fa;--card:#fff;--card2:#f0f0f5;
---border:#d8d8e0;--text:#1a1a2e;--muted:#666680}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);
 min-height:100vh;font-size:14px}
-
 #login{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;
 flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:14px}
 .logo{width:70px;height:70px}
@@ -549,16 +505,14 @@ flex-direction:column;align-items:center;justify-content:center;padding:20px;gap
 .sub{color:var(--muted);font-size:12px;margin-top:-4px}
 .gbox{display:flex;justify-content:center;width:100%}
 .manual-btn{background:transparent;border:1px solid var(--border);color:var(--muted);
-padding:8px 16px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:12px;margin-top:6px}
-.manual-form{width:100%;max-width:320px;display:none;flex-direction:column;gap:8px;margin-top:8px}
+padding:8px 16px;border-radius:9px;cursor:pointer;font-family:inherit;font-size:12px}
+.manual-form{width:100%;max-width:320px;display:none;flex-direction:column;gap:8px}
 .manual-form.on{display:flex}
 .manual-form input{padding:11px 14px;border-radius:10px;border:1.5px solid var(--border);
 background:var(--card);color:var(--text);font-size:14px;font-family:inherit;outline:none}
-.manual-form input:focus{border-color:var(--red)}
 .manual-form button{padding:11px;border-radius:10px;border:none;background:var(--grad);
 color:#fff;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer}
 .err{color:#f87171;font-size:11px;min-height:14px;text-align:center}
-
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
 .hd{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--card);
@@ -569,12 +523,9 @@ border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
 .hd .sub{font-size:9px;color:var(--muted)}
 .hd-actions{margin-inline-start:auto;display:flex;gap:4px}
 .hd-actions button{width:32px;height:32px;border-radius:9px;border:none;
-background:var(--card2);color:var(--text);cursor:pointer;font-size:14px;transition:all .2s}
-.hd-actions button:hover{background:var(--red);color:#fff}
+background:var(--card2);color:var(--text);cursor:pointer;font-size:14px}
 .hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
-
 #ch{flex:1;overflow-y:auto;padding:12px 12px 190px;display:flex;flex-direction:column;gap:10px}
-
 .welcome{display:flex;flex-direction:column;align-items:center;gap:12px;
 text-align:center;padding:30px 16px}
 .welcome img{width:60px;height:60px}
@@ -583,9 +534,8 @@ text-align:center;padding:30px 16px}
 .chips{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;max-width:340px;width:100%}
 .chips button{padding:10px;border-radius:10px;border:1px solid var(--border);
 background:var(--card);color:var(--text);font-family:inherit;font-size:11px;
-font-weight:600;cursor:pointer;transition:all .2s}
+font-weight:600;cursor:pointer}
 .chips button:hover{border-color:var(--red)}
-
 .mw{display:flex;gap:6px;max-width:92%}
 .mw.u{align-self:flex-start;flex-direction:row-reverse}
 .mw.b{align-self:flex-end}
@@ -600,9 +550,8 @@ word-wrap:break-word;overflow-wrap:anywhere}
 .b .m{background:var(--card2);color:var(--text);border:1px solid var(--border);
 border-top-left-radius:4px}
 .b .m h1,.b .m h2,.b .m h3{margin:8px 0 4px;font-weight:700}
-.b .m h1{font-size:15px;color:#ef4444}
-.b .m h2{font-size:14px;color:#ef4444}
-.b .m h3{font-size:13px;color:#3b82f6}
+.b .m h1,.b .m h2{color:#ef4444}
+.b .m h3{color:#3b82f6}
 .b .m strong{color:#ef4444}
 .b .m ul,.b .m ol{padding-inline-start:1.2rem;margin:4px 0}
 .b .m pre{background:#000;padding:10px;border-radius:8px;overflow-x:auto;
@@ -611,20 +560,15 @@ direction:ltr;text-align:left;margin:6px 0;font-size:11px;font-family:monospace}
 font-family:monospace;font-size:.9em;direction:ltr}
 .b .m pre code{background:transparent;padding:0;color:inherit}
 .b .m img{max-width:100%;border-radius:10px;margin-top:6px;display:block}
-.b .m hr{border:none;border-top:1px solid var(--border);margin:8px 0}
-
+.acts{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
+.acts button{padding:3px 8px;border-radius:6px;border:1px solid var(--border);
+background:transparent;color:var(--muted);font-family:inherit;font-size:10px;cursor:pointer}
+.acts button.active{background:var(--red);color:#fff;border-color:var(--red)}
 .tp{display:flex;gap:3px;padding:10px 14px}
 .tp span{width:6px;height:6px;border-radius:50%;background:var(--red);animation:b 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.15s}
 .tp span:nth-child(3){animation-delay:.3s}
 @keyframes b{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
-
-.acts{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
-.acts button{padding:3px 8px;border-radius:6px;border:1px solid var(--border);
-background:transparent;color:var(--muted);font-family:inherit;font-size:10px;cursor:pointer}
-.acts button:hover{color:var(--red);border-color:var(--red)}
-.acts button.active{background:var(--red);color:#fff;border-color:var(--red)}
-
 .input-area{position:fixed;bottom:0;left:0;right:0;padding:8px 10px 12px;
 background:linear-gradient(to top,var(--bg) 70%,transparent);z-index:5}
 .modes{display:flex;gap:4px;margin-bottom:6px;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
@@ -645,11 +589,10 @@ cursor:pointer;display:grid;place-items:center;flex-shrink:0}
 #mic.rec{background:#dc2626;color:#fff}
 #s{background:var(--grad);color:#fff}
 #s:disabled{opacity:.4}
-
 .modal{position:fixed;inset:0;background:rgba(10,10,20,.95);backdrop-filter:blur(10px);
 z-index:200;display:none;flex-direction:column;padding:20px;overflow-y:auto}
 .modal.on{display:flex}
-.modal-in{max-width:420px;margin:auto;width:100%;background:var(--card);
+.modal-in{max-width:400px;margin:auto;width:100%;background:var(--card);
 border-radius:16px;padding:20px;border:1px solid var(--border);position:relative}
 .modal h2{font-size:16px;font-weight:800;margin-bottom:12px;
 background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -661,14 +604,6 @@ border:none;background:var(--card2);color:var(--text);font-size:16px;cursor:poin
 background:var(--card2);color:var(--text);font-family:inherit;font-size:13px;outline:none}
 .btn-act{padding:11px;border-radius:9px;border:none;background:var(--grad);color:#fff;
 font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px;font-size:13px}
-
-#install{position:fixed;bottom:80px;right:10px;left:10px;max-width:380px;margin:auto;
-padding:10px;background:var(--grad);color:#fff;border-radius:12px;
-box-shadow:0 10px 28px rgba(220,38,38,.5);z-index:100;display:flex;
-align-items:center;gap:8px;font-size:12px;font-weight:700}
-#install button{padding:6px 10px;border:none;border-radius:8px;background:#fff;
-color:var(--red);font-weight:700;font-family:inherit;font-size:11px;cursor:pointer}
-#install .x{background:transparent;color:#fff;font-size:14px;padding:3px 5px}
 </style>
 </head>
 <body>
@@ -701,7 +636,6 @@ color:var(--red);font-weight:700;font-family:inherit;font-size:11px;cursor:point
       <div class="sub" id="who">—</div>
     </div>
     <div class="hd-actions">
-      <button id="themeBtn" onclick="toggleTheme()" title="المظهر">🌙</button>
       <button id="vb" onclick="toggleVoice()" title="الصوت">🔇</button>
       <button onclick="menu()" title="القائمة">☰</button>
     </div>
@@ -746,58 +680,33 @@ color:var(--red);font-weight:700;font-family:inherit;font-size:11px;cursor:point
         <option value="ar-SA">🇸🇦 سعودية</option>
         <option value="ar-EG">🇪🇬 مصرية</option>
         <option value="ar-DZ">🇩🇿 جزائرية</option>
-        <option value="ar-MA">🇲🇦 مغربية</option>
       </select>
     </div>
     <button class="btn-act" onclick="testVoice()">🎧 تجربة الصوت</button>
-    <button class="btn-act" style="background:var(--card2);margin-top:8px" onclick="closeModal('settingsModal');document.getElementById('app').classList.remove('on');location.reload()">🚪 تسجيل الخروج</button>
+    <button class="btn-act" style="background:var(--card2);margin-top:8px"
+      onclick="fetch('/api/logout',{method:'POST'}).then(()=>location.reload())">
+      🚪 تسجيل الخروج
+    </button>
   </div>
 </div>
 
 <script>
 let mode="general", history=[], isAdmin=false, isSending=false;
-let userName="", userPic="", voiceEnabled=false, currentAudio=null, deferredPrompt=null;
+let userName="", userPic="", voiceEnabled=false, currentAudio=null;
 
 const ch=document.getElementById("ch"), i=document.getElementById("i"),
       s=document.getElementById("s"), mic=document.getElementById("mic"),
       vb=document.getElementById("vb"), errEl=document.getElementById("err");
 
-// ===== Theme =====
-(function(){
-  const t = localStorage.getItem("moka_theme") || "dark";
-  document.documentElement.setAttribute("data-theme", t);
-  setTimeout(()=>{const b=document.getElementById("themeBtn");
-    if(b) b.textContent = t==="light" ? "☀️" : "🌙";}, 50);
-})();
-function toggleTheme(){
-  const c = document.documentElement.getAttribute("data-theme");
-  const n = c==="light" ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", n);
-  localStorage.setItem("moka_theme", n);
-  document.getElementById("themeBtn").textContent = n==="light" ? "☀️" : "🌙";
-}
-
-// ===== Auto-login =====
 window.addEventListener("load", () => {
-  const saved = localStorage.getItem("moka_user");
-  if(saved){
-    try{
-      const u = JSON.parse(saved);
-      // تحقق من الخادم
-      fetch("/api/me").then(r=>r.json()).then(d=>{
-        if(d.ok) enterApp(d.name, d.role, d.picture||"");
-      }).catch(()=>{});
-    }catch(e){}
-  }
+  fetch("/api/me").then(r=>r.json()).then(d=>{
+    if(d.ok) enterApp(d.name, d.role, d.picture||"");
+  }).catch(()=>{});
 });
 
-function saveUser(){
-  localStorage.setItem("moka_user", JSON.stringify({
-    name: userName, role: isAdmin?"admin":"user", picture: userPic
-  }));
-}
-
 function toggleManual(){document.getElementById("manualForm").classList.toggle("on")}
+function closeModal(id){document.getElementById(id).classList.remove("on")}
+function openModal(id){document.getElementById(id).classList.add("on")}
 
 async function doManualLogin(){
   const u = document.getElementById("mu").value.trim();
@@ -817,14 +726,12 @@ function onGoogleLogin(resp){
   fetch("/api/google-login", {method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({credential: resp.credential})})
-  .then(r=>r.json())
-  .then(d=>{
+  .then(r=>r.json()).then(d=>{
     if(!d.ok){errEl.textContent = d.msg || "فشل"; return}
     enterApp(d.name, d.role, d.picture);
   }).catch(()=>{errEl.textContent="تعذر الاتصال"});
 }
 
-// ===== Helpers =====
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
   let h=esc(t);
@@ -832,7 +739,6 @@ function md(t){
   h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");
   h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");
   h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
-  h=h.replace(/^---$/gm,"<hr>");
   h=h.replace(/`([^`]+)`/g,"<code>$1</code>");
   h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
   h=h.replace(/^\s*[-*] (.+)$/gm,"<li>$1</li>");
@@ -842,14 +748,11 @@ function md(t){
 }
 
 function addMsg(text, who, img){
-  const w=document.createElement("div");
-  w.className="mw "+who;
-  const av=document.createElement("div");
-  av.className="avt";
+  const w=document.createElement("div"); w.className="mw "+who;
+  const av=document.createElement("div"); av.className="avt";
   if(who==="u" && userPic) av.innerHTML='<img src="'+userPic+'" alt="">';
   else av.textContent = who==="u" ? (userName||"أ").charAt(0).toUpperCase() : "M";
-  const m=document.createElement("div");
-  m.className="m";
+  const m=document.createElement("div"); m.className="m";
   m.innerHTML = who==="b" ? md(text) : esc(text);
   if(img){const im=document.createElement("img"); im.src=img; m.appendChild(im);}
   const wrap=document.createElement("div"); wrap.appendChild(m);
@@ -874,8 +777,7 @@ function addMsg(text, who, img){
 }
 
 function typ(){
-  const w=document.createElement("div");
-  w.className="mw b"; w.id="tp";
+  const w=document.createElement("div"); w.className="mw b"; w.id="tp";
   w.innerHTML='<div class="avt">M</div><div class="m tp"><span></span><span></span><span></span></div>';
   ch.appendChild(w); ch.scrollTop=ch.scrollHeight; return w;
 }
@@ -895,7 +797,6 @@ function welcome(){
 
 function quick(t){i.value=t; send()}
 
-// ===== Voice =====
 function toggleVoice(){
   voiceEnabled = !voiceEnabled;
   vb.classList.toggle("voice-on", voiceEnabled);
@@ -943,14 +844,12 @@ function toggleMic(){
 
 function enterApp(name, role, pic){
   userName = name; userPic = pic||""; isAdmin = (role==="admin");
-  saveUser();
   document.getElementById("login").style.display="none";
   document.getElementById("app").classList.add("on");
   document.getElementById("who").textContent = (isAdmin?"👑 ":"") + name;
-  // استرجع المحادثة المحفوظة
   try{
     const saved = localStorage.getItem("moka_chat");
-    if(saved && saved.length > 2){
+    if(saved && JSON.parse(saved).length > 2){
       history = JSON.parse(saved);
       history.forEach(m => addMsg(m.content, m.role==="user"?"u":"b"));
     } else { welcome(); }
@@ -974,9 +873,7 @@ async function send(){
     tp.remove();
     addMsg(d.reply||"لا يوجد رد.","b",d.image||null);
     history.push({role:"assistant",content:d.reply||""});
-    try{
-      localStorage.setItem("moka_chat", JSON.stringify(history.slice(-30)));
-    }catch(e){}
+    try{localStorage.setItem("moka_chat", JSON.stringify(history.slice(-30)));}catch(e){}
     if(voiceEnabled && !d.image) speak(d.reply);
   }catch(e){
     tp.remove(); addMsg("تعذر الاتصال","b");
@@ -990,8 +887,6 @@ function sw(m){
   document.querySelectorAll(".modes button").forEach(b=>b.classList.toggle("on", b.dataset.m===m));
 }
 
-function closeModal(id){document.getElementById(id).classList.remove("on")}
-function openModal(id){document.getElementById(id).classList.add("on")}
 function testVoice(){
   const o=voiceEnabled; voiceEnabled=true;
   speak("مرحبًا، أنا Moka AI من تطوير محمد كامل",true);
@@ -1014,7 +909,7 @@ function menu(){
     const a2 = document.createElement("a"); a2.href = URL.createObjectURL(bl);
     a2.download = "moka-"+Date.now()+".txt"; a2.click();
   } else if(x==="الإعدادات"){openModal("settingsModal")}
-  else if(x==="لوحة الإدارة"){
+  else if(x==="لوحلة الإدارة"){
     const k = prompt("مفتاح اللوحة:"); if(k) window.open("/admin?key="+k,"_blank");
   }
 }
@@ -1029,72 +924,53 @@ i.addEventListener("input",()=>{
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
 }
-window.addEventListener("beforeinstallprompt",e=>{
-  e.preventDefault(); deferredPrompt=e;
-  if(document.getElementById("install")) return;
-  const b = document.createElement("div"); b.id="install";
-  b.innerHTML='<span style="font-size:20px">📱</span><div style="flex:1">ثبّت Moka AI<div style="font-size:10px;font-weight:500;opacity:.85">يعمل بدون متصفح</div></div><button onclick="installApp()">تثبيت</button><button class="x" onclick="this.parentElement.remove()">✕</button>';
-  document.body.appendChild(b);
-});
-function installApp(){
-  if(!deferredPrompt) return;
-  deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(()=>{
-    deferredPrompt=null;
-    const b = document.getElementById("install"); if(b) b.remove();
-  });
-}
 </script>
 </body>
 </html>'''
 
 
-# ============ لوحة الإدارة ============
-
 HTML_ADMIN = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>لوحة الإدارة</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-body{font-family:Cairo;background:#0a0a14;color:#eaeaf5;padding:20px;min-height:100vh}
-h1{font-size:22px;font-weight:900;color:#ef4444;margin-bottom:6px}
-.sub{color:#8a8aa8;font-size:12px;margin-bottom:18px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
-.card{background:#181828;border:1px solid #2a2a45;border-radius:14px;padding:16px;text-align:center}
-.num{font-size:24px;font-weight:900;color:#ef4444}
-.lbl{font-size:11px;color:#8a8aa8;margin-top:4px}
-.box{background:#181828;border:1px solid #2a2a45;border-radius:14px;padding:16px;margin-bottom:14px}
-.box h2{font-size:15px;font-weight:800;margin-bottom:10px}
-.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a45;font-size:13px;gap:8px;flex-wrap:wrap}
+body{font-family:Cairo;background:#0a0a14;color:#eaeaf5;padding:16px;font-size:13px}
+h1{font-size:20px;color:#ef4444;margin-bottom:4px}
+.sub{color:#8a8aa8;font-size:11px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:16px}
+.card{background:#181828;border:1px solid #2a2a45;border-radius:12px;padding:12px;text-align:center}
+.num{font-size:22px;font-weight:900;color:#ef4444}
+.lbl{font-size:10px;color:#8a8aa8;margin-top:3px}
+.box{background:#181828;border:1px solid #2a2a45;border-radius:12px;padding:14px;margin-bottom:12px}
+.box h2{font-size:14px;font-weight:800;margin-bottom:8px}
+.row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #2a2a45;font-size:12px;gap:6px;flex-wrap:wrap}
 .row:last-child{border-bottom:none}
-.row .meta{color:#8a8aa8;font-size:11px}
-.badge{background:#dc2626;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800}
+.meta{color:#8a8aa8;font-size:10px}
+.badge{background:#dc2626;color:#fff;padding:2px 6px;border-radius:5px;font-size:9px;font-weight:800}
 .badge.user{background:#22c55e}
-a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;margin-bottom:14px;font-size:13px}
+a.back{color:#ef4444;text-decoration:none;font-weight:800;font-size:12px}
 </style>
 </head>
 <body>
 <a href="/" class="back">← رجوع</a>
-<h1>لوحة الإدارة</h1>
-<div class="sub">Moka AI — محمد كامل</div>
+<h1>👑 لوحة الإدارة</h1>
+<div class="sub">Moka AI v39.0 — مجاني بالكامل</div>
 
 <div class="grid">
   <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
   <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">دخول</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
-  <div class="card"><div class="num">{{ stats.books_generated }}</div><div class="lbl">كتب</div></div>
   <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
+  <div class="card"><div class="num">{{ stats.books_generated }}</div><div class="lbl">كتب</div></div>
   <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
   <div class="card"><div class="num">{{ stats.ratings_up }}</div><div class="lbl">👍</div></div>
-  <div class="card"><div class="num">{{ stats.ratings_down }}</div><div class="lbl">👎</div></div>
   <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
 </div>
 
 <div class="box">
-  <h2>المستخدمون</h2>
+  <h2>👥 المستخدمون</h2>
   {% for u, info in users.items() %}
   <div class="row">
     <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
@@ -1106,16 +982,14 @@ a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;m
 </html>'''
 
 
-# ============ التشغيل ============
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print("=" * 50, flush=True)
-    print("Moka AI v37.0", flush=True)
+    print("="*50, flush=True)
+    print("Moka AI v39.0 - مجاني بالكامل", flush=True)
     print("Admin: " + ADMIN_EMAIL, flush=True)
-    print("Google: " + ("OK" if GOOGLE_CLIENT_ID else "MISSING!"), flush=True)
-    print("Groq: " + ("OK" if GROQ_API_KEY else "MISSING!"), flush=True)
-    print("OpenRouter: " + ("OK" if OPENROUTER_API_KEY else "MISSING!"), flush=True)
+    print("Google: " + ("OK" if GOOGLE_CLIENT_ID else "MISSING"), flush=True)
+    print("Groq: " + ("OK" if GROQ_API_KEY else "MISSING"), flush=True)
+    print("OpenRouter: " + ("OK" if OPENROUTER_API_KEY else "MISSING"), flush=True)
     print("Pollinations: Always ON", flush=True)
-    print("=" * 50, flush=True)
+    print("="*50, flush=True)
     app.run(host="0.0.0.0", port=port, debug=False)
