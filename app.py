@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v32.0 — Final Edition
+#  Moka AI v33.0 — Final
 #  المطور: محمد كامل
 # ============================================================
 
@@ -30,10 +30,9 @@ ADMIN_EMAIL      = os.environ.get("ADMIN_EMAIL",    "kamelmouhammed55@gmail.com"
 SECRET_SALT      = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
 
-# ============ Groq ============
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
-GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODELS  = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
+# ============ AI مزودات ============
+GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "").strip()
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 
 # ============ الملفات ============
 DATA_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -74,9 +73,9 @@ if ADMIN_USERNAME not in USERS:
     }
     save_json(USERS_FILE, USERS)
 
-# ============ الإحصائيات ============
+# ============ إحصائيات ============
 DEFAULT_STATS = {
-    "visitors": 0, "logins": 0, "registrations": 0, "messages": 0,
+    "visitors": 0, "logins": 0, "messages": 0,
     "images_generated": 0, "voice_used": 0, "books_generated": 0,
     "modes": {m: 0 for m in ["general","write","code","math",
                               "translate","summary","religion","science"]},
@@ -131,20 +130,12 @@ def login_required(fn):
         return fn(*a, **kw)
     return wrapper
 
-def admin_required(fn):
-    @wraps(fn)
-    def wrapper(*a, **kw):
-        if session.get("role") != "admin" and request.args.get("key") != ADMIN_KEY:
-            return "مرفوض", 403
-        return fn(*a, **kw)
-    return wrapper
-
 # ============ ويكيبيديا ============
 def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/32"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/33"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -152,7 +143,7 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/32"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/33"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
@@ -190,70 +181,85 @@ def clean_reply(t):
     t = t.replace("\\sqrt", "√").replace("\\frac", "")
     return t.strip()
 
+def call_groq(full, max_tokens):
+    if not GROQ_API_KEY:
+        return None
+    for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+        try:
+            print(f"[Groq] {model}", flush=True)
+            payload = json.dumps({
+                "model": model, "messages": full,
+                "temperature": 0.7, "max_tokens": max_tokens,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=payload,
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}",
+                         "Content-Type": "application/json"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=45) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            reply = data["choices"][0]["message"]["content"].strip()
+            if reply:
+                print("[Groq] OK", flush=True)
+                return reply
+        except urllib.error.HTTPError as e:
+            print(f"[Groq] HTTP {e.code}", flush=True)
+            continue
+        except Exception as e:
+            print(f"[Groq] {type(e).__name__}", flush=True)
+            continue
+    return None
+
+def call_openrouter(full, max_tokens):
+    if not OPENROUTER_API_KEY:
+        return None
+    for model in ["meta-llama/llama-3.3-70b-instruct:free",
+                  "google/gemma-2-9b-it:free",
+                  "mistralai/mistral-7b-instruct:free"]:
+        try:
+            print(f"[OR] {model}", flush=True)
+            payload = json.dumps({
+                "model": model, "messages": full,
+                "temperature": 0.7, "max_tokens": max_tokens,
+            }).encode("utf-8")
+            req = urllib.request.Request(
+                "https://openrouter.ai/api/v1/chat/completions",
+                data=payload,
+                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                         "Content-Type": "application/json",
+                         "HTTP-Referer": "https://ai-ka.onrender.com",
+                         "X-Title": "Moka AI"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=60) as r:
+                data = json.loads(r.read().decode("utf-8"))
+            reply = data["choices"][0]["message"]["content"].strip()
+            if reply:
+                print("[OR] OK", flush=True)
+                return reply
+        except urllib.error.HTTPError as e:
+            print(f"[OR] HTTP {e.code}", flush=True)
+            continue
+        except Exception as e:
+            print(f"[OR] {type(e).__name__}", flush=True)
+            continue
+    return None
+
 def call_ai(messages, mode="general", max_tokens=2000):
     system = build_system(mode)
     full = [{"role": "system", "content": system}] + messages[-20:]
 
-    if GROQ_API_KEY:
-        for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
-            try:
-                print(f"[Groq] {model}", flush=True)
-                payload = json.dumps({
-                    "model": model, "messages": full,
-                    "temperature": 0.7, "max_tokens": max_tokens,
-                }).encode("utf-8")
-                req = urllib.request.Request(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    data=payload,
-                    headers={"Authorization": f"Bearer {GROQ_API_KEY}",
-                             "Content-Type": "application/json"},
-                    method="POST")
-                with urllib.request.urlopen(req, timeout=45) as r:
-                    data = json.loads(r.read().decode("utf-8"))
-                reply = data["choices"][0]["message"]["content"].strip()
-                if reply:
-                    print("[Groq] OK", flush=True)
-                    return clean_reply(reply)
-            except urllib.error.HTTPError as e:
-                print(f"[Groq] HTTP {e.code}", flush=True)
-                continue
-            except Exception as e:
-                print(f"[Groq] {type(e).__name__}", flush=True)
-                continue
+    # 1. جرّب Groq
+    reply = call_groq(full, max_tokens)
+    if reply:
+        return clean_reply(reply)
 
-    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    if or_key:
-        for model in ["meta-llama/llama-3.3-70b-instruct:free",
-                      "google/gemma-2-9b-it:free",
-                      "mistralai/mistral-7b-instruct:free"]:
-            try:
-                print(f"[OR] {model}", flush=True)
-                payload = json.dumps({
-                    "model": model, "messages": full,
-                    "temperature": 0.7, "max_tokens": max_tokens,
-                }).encode("utf-8")
-                req = urllib.request.Request(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    data=payload,
-                    headers={"Authorization": f"Bearer {or_key}",
-                             "Content-Type": "application/json",
-                             "HTTP-Referer": "https://ai-ka.onrender.com",
-                             "X-Title": "Moka AI"},
-                    method="POST")
-                with urllib.request.urlopen(req, timeout=60) as r:
-                    data = json.loads(r.read().decode("utf-8"))
-                reply = data["choices"][0]["message"]["content"].strip()
-                if reply:
-                    print("[OR] OK", flush=True)
-                    return clean_reply(reply)
-            except urllib.error.HTTPError as e:
-                print(f"[OR] HTTP {e.code}", flush=True)
-                continue
-            except Exception as e:
-                print(f"[OR] {type(e).__name__}", flush=True)
-                continue
+    # 2. جرّب OpenRouter
+    reply = call_openrouter(full, max_tokens)
+    if reply:
+        return clean_reply(reply)
 
-    return "⚠️ تعذر الاتصال بالخدمة."
+    return "⚠️ تعذر الاتصال بالخدمة. تحقق من مفاتيح API."
 
 def generate_book(topic):
     book = {"toc": "", "intro": "", "chapters": []}
@@ -274,7 +280,7 @@ def generate_book(topic):
 def verify_google_token(id_token):
     try:
         url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/32"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/33"})
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode("utf-8"))
         return {
@@ -356,23 +362,7 @@ def sw():
 def icon():
     return Response(ICON_SVG, mimetype="image/svg+xml")
 
-# ============ Auth عادي ============
-@app.route("/api/login", methods=["POST"])
-def api_login():
-    data = request.get_json(silent=True) or {}
-    u = data.get("username", "").strip()
-    p = data.get("password", "")
-    if not u or not p:
-        return jsonify({"ok": False, "msg": "أدخل البيانات"}), 400
-    user = USERS.get(u)
-    if not user or user.get("password") != hash_pw(p):
-        return jsonify({"ok": False, "msg": "بيانات خاطئة"}), 401
-    session["user"] = u
-    session["role"] = user["role"]
-    session["name"] = user["name"]
-    session["sid"] = secrets.token_hex(8)
-    return jsonify({"ok": True, "name": user["name"], "role": user["role"]})
-
+# ============ Auth ============
 @app.route("/api/logout", methods=["POST"])
 def api_logout():
     session.clear()
@@ -415,7 +405,7 @@ def api_chat():
                      "nude","naked","nsfw","xxx","girl","woman","man",
                      "امرأة","رجل","فتاة","شاب","شخص","إنسان","وجه"]
         if any(w in prompt.lower() for w in forbidden):
-            return jsonify({"reply": "🚫 جرّب وصفًا آخر (طبيعة، حيوانات)."})
+            return jsonify({"reply": "🚫 جرّب وصفًا آخر."})
         enhanced = f"beautiful photo of {prompt}, no people, no humans, 8k"
         STATS["images_generated"] = STATS.get("images_generated", 0) + 1
         save_stats()
@@ -514,8 +504,7 @@ def admin():
         return "للمدير فقط", 403
     if request.args.get("key") != ADMIN_KEY:
         return "مفتاح مطلوب", 403
-    return render_template_string(HTML_ADMIN, stats=STATS, users=USERS,
-                                  blocked=list(BLOCKED_IPS), key=ADMIN_KEY)
+    return render_template_string(HTML_ADMIN, stats=STATS, users=USERS)
 
 @app.route("/health")
 def health():
@@ -536,7 +525,7 @@ MANIFEST_JSON = json.dumps({
 }, ensure_ascii=False)
 
 SERVICE_WORKER_JS = """
-const CACHE = "moka-v32";
+const CACHE = "moka-v33";
 self.addEventListener("install", function(){self.skipWaiting()});
 self.addEventListener("activate", function(e){e.waitUntil(self.clients.claim())});
 self.addEventListener("fetch", function(e){
@@ -758,7 +747,7 @@ const ch=document.getElementById("ch"), i=document.getElementById("i"),
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
   let h=esc(t);
-  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>`<pre><code>${c}</code></pre>`);
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,l,c){return "<pre><code>"+c+"</code></pre>"});
   h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");
   h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");
   h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
@@ -766,7 +755,7 @@ function md(t){
   h=h.replace(/`([^`]+)`/g,"<code>$1</code>");
   h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
   h=h.replace(/^\s*[-*] (.+)$/gm,"<li>$1</li>");
-  h=h.replace(/(<li>[\s\S]*?<\/li>)/g,m=>`<ul>${m}</ul>`);
+  h=h.replace(/(<li>[\s\S]*?<\/li>)/g,function(m){return "<ul>"+m+"</ul>"});
   h=h.replace(/\n/g,"<br>");
   return h;
 }
@@ -777,7 +766,7 @@ function addMsg(text, who, img){
   const av=document.createElement("div");
   av.className="avt";
   if(who==="u" && userPic){
-    av.innerHTML=`<img src="${userPic}" alt="">`;
+    av.innerHTML='<img src="'+userPic+'" alt="">';
   } else {
     av.textContent=who==="u"?(userName||"أ").charAt(0).toUpperCase():"M";
   }
@@ -797,11 +786,11 @@ function addMsg(text, who, img){
     const c1=document.createElement("button");
     c1.textContent="📋 نسخ";
     c1.style.cssText="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:inherit;font-size:11px;cursor:pointer";
-    c1.onclick=()=>{navigator.clipboard.writeText(text);c1.textContent="✅";setTimeout(()=>c1.textContent="📋 نسخ",1500)};
+    c1.onclick=function(){navigator.clipboard.writeText(text);c1.textContent="✅";setTimeout(function(){c1.textContent="📋 نسخ"},1500)};
     const c2=document.createElement("button");
     c2.textContent="🔊";
     c2.style.cssText=c1.style.cssText;
-    c2.onclick=()=>speak(text,true);
+    c2.onclick=function(){speak(text,true)};
     acts.appendChild(c1); acts.appendChild(c2);
     wrap.appendChild(acts);
   }
@@ -820,35 +809,31 @@ function typ(){
 }
 
 function welcome(){
-  ch.innerHTML=`
-    <div class="welcome">
-      <img src="/icon.svg" alt="Moka">
-      <h2>مرحبًا ${userName} 👋</h2>
-      <p>أنا Moka AI، مساعدك الذكي من تطوير محمد كامل.</p>
-      <div class="chips">
-        <button onclick="quick('من صنعك؟')">👋 من صنعك؟</button>
-        <button onclick="quick('/كتاب تاريخ الجزائر')">📚 مولّد الكتب</button>
-        <button onclick="quick('اكتب كود Python')">💻 كود</button>
-        <button onclick="quick('/صورة غروب على البحر')">🎨 صورة</button>
-      </div>
-    </div>`;
+  ch.innerHTML='<div class="welcome"><img src="/icon.svg" alt="Moka">'+
+    '<h2>مرحبًا '+userName+' 👋</h2>'+
+    '<p>أنا Moka AI، مساعدك الذكي من تطوير محمد كامل.</p>'+
+    '<div class="chips">'+
+    '<button onclick="quick(\'من صنعك؟\')">👋 من صنعك؟</button>'+
+    '<button onclick="quick(\'/كتاب تاريخ الجزائر\')">📚 مولّد الكتب</button>'+
+    '<button onclick="quick(\'اكتب كود Python\')">💻 كود</button>'+
+    '<button onclick="quick(\'/صورة غروب على البحر\')">🎨 صورة</button>'+
+    '</div></div>';
 }
 
 function quick(t){i.value=t; send()}
 
-// Google Login
 function onGoogleLogin(response){
   fetch("/api/google-login", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({credential: response.credential})
   })
-  .then(r => r.json())
-  .then(d => {
+  .then(function(r){return r.json()})
+  .then(function(d){
     if(!d.ok){ alert("فشل الدخول"); return; }
     enterApp(d.name, d.role, d.picture);
   })
-  .catch(() => alert("تعذر الاتصال بالخادم"));
+  .catch(function(){ alert("تعذر الاتصال بالخادم"); });
 }
 
 function toggleVoice(){
@@ -876,7 +861,7 @@ function speak(text, force){
   if(currentAudio){currentAudio.pause();currentAudio=null;}
   if(window.speechSynthesis) speechSynthesis.cancel();
   currentAudio = new Audio("/api/tts?lang=ar&text="+encodeURIComponent(c));
-  currentAudio.play().catch(()=>{});
+  currentAudio.play().catch(function(){});
 }
 
 let rec = null;
@@ -888,9 +873,9 @@ function toggleMic(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   rec = new SR();
   rec.lang = "ar-SA";
-  rec.onstart = ()=>mic.classList.add("rec");
-  rec.onend = ()=>{mic.classList.remove("rec"); rec=null};
-  rec.onresult = (e)=>{
+  rec.onstart = function(){mic.classList.add("rec")};
+  rec.onend = function(){mic.classList.remove("rec"); rec=null};
+  rec.onresult = function(e){
     i.value += (i.value?" ":"") + e.results[0][0].transcript;
     i.focus();
   };
@@ -935,14 +920,14 @@ async function send(){
 
 function sw(m){
   mode=m;
-  document.querySelectorAll(".modes button").forEach(b=>b.classList.toggle("on",b.dataset.m===m));
+  document.querySelectorAll(".modes button").forEach(function(b){b.classList.toggle("on",b.dataset.m===m)});
 }
 
 function menu(){
   const a=["مسح المحادثة"];
   if(isAdmin) a.push("لوحة الإدارة");
   a.push("تسجيل الخروج");
-  const c=prompt("اختر:\n"+a.map((x,n)=>(n+1)+". "+x).join("\n"));
+  const c=prompt("اختر:\n"+a.map(function(x,n){return (n+1)+". "+x}).join("\n"));
   const idx=parseInt(c)-1, x=a[idx];
   if(!x) return;
   if(x==="مسح المحادثة"){
@@ -955,22 +940,22 @@ function menu(){
     const k=prompt("مفتاح اللوحة:");
     if(k) window.open("/admin?key="+k,"_blank");
   } else if(x==="تسجيل الخروج"){
-    if(confirm("خروج؟")) fetch("/api/logout",{method:"POST"}).then(()=>location.reload());
+    if(confirm("خروج؟")) fetch("/api/logout",{method:"POST"}).then(function(){location.reload()});
   }
 }
 
-i.addEventListener("keydown",e=>{
+i.addEventListener("keydown",function(e){
   if(e.key==="Enter" && !e.shiftKey){e.preventDefault(); send();}
 });
-i.addEventListener("input",()=>{
+i.addEventListener("input",function(){
   i.style.height="auto";
   i.style.height=Math.min(i.scrollHeight,140)+"px";
 });
 
 if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("/sw.js").catch(()=>{}));
+  window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").catch(function(){})});
 }
-window.addEventListener("beforeinstallprompt",e=>{
+window.addEventListener("beforeinstallprompt",function(e){
   e.preventDefault();
   deferredPrompt=e;
   if(document.getElementById("install")) return;
@@ -982,7 +967,7 @@ window.addEventListener("beforeinstallprompt",e=>{
 function installApp(){
   if(!deferredPrompt) return;
   deferredPrompt.prompt();
-  deferredPrompt.userChoice.then(()=>{
+  deferredPrompt.userChoice.then(function(){
     deferredPrompt=null;
     const b=document.getElementById("install");
     if(b) b.remove();
@@ -1014,10 +999,7 @@ h1{font-size:24px;font-weight:900;color:#ef4444;margin-bottom:6px}
 .row .meta{color:#8a8aa8;font-size:11px}
 .badge{background:#dc2626;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800}
 .badge.user{background:#22c55e}
-.msg-item{padding:8px;background:#0a0a14;border-radius:8px;margin-bottom:5px;font-size:12px}
-.msg-item .meta{display:flex;justify-content:space-between;color:#8a8aa8;font-size:10px;margin-bottom:3px}
 a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;margin-bottom:14px;font-size:13px}
-a.unblock{background:#22c55e;color:#fff;padding:3px 8px;border-radius:6px;font-size:10px;text-decoration:none;font-weight:800}
 </style>
 </head>
 <body>
@@ -1058,9 +1040,10 @@ a.unblock{background:#22c55e;color:#fff;padding:3px 8px;border-radius:6px;font-s
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("=" * 55, flush=True)
-    print("Moka AI v32.0", flush=True)
+    print("Moka AI v33.0", flush=True)
     print("Admin: " + ADMIN_EMAIL, flush=True)
     print("Google: " + ("OK" if GOOGLE_CLIENT_ID else "MISSING!"), flush=True)
     print("Groq: " + ("OK" if GROQ_API_KEY else "MISSING!"), flush=True)
+    print("OpenRouter: " + ("OK" if OPENROUTER_API_KEY else "MISSING!"), flush=True)
     print("=" * 55, flush=True)
     app.run(host="0.0.0.0", port=port, debug=False)
