@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v26.0 - نهائي
+#  Moka AI v27.0 - مع صوت عربي احترافي
 #  المطور: محمد كامل
 # ============================================================
 
@@ -11,7 +11,7 @@ from functools import wraps
 from collections import defaultdict
 
 from flask import (Flask, request, jsonify, render_template_string,
-                   session, redirect, url_for)
+                   session, redirect, url_for, Response)
 
 try:
     from dotenv import load_dotenv
@@ -28,11 +28,10 @@ ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "KamelDz2026Prime")
 ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "mokaadmin2026")
 SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 
-# ============ Groq API ============
+# ============ Groq ============
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
-# ✅ النماذج المتاحة (بالأولوية)
 GROQ_MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
@@ -65,14 +64,13 @@ def save_json(path, data):
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"[save_json] {e}")
+        print("[save_json] " + str(e))
 
 def hash_pw(pw):
     return hashlib.sha256((pw + SECRET_SALT).encode("utf-8")).hexdigest()
 
 # ============ المستخدمون ============
 USERS = load_json(USERS_FILE, {})
-
 if ADMIN_USERNAME not in USERS:
     USERS[ADMIN_USERNAME] = {
         "password": hash_pw(ADMIN_PASSWORD),
@@ -101,7 +99,7 @@ def save_blocked(): save_json(BLOCKED_FILE, list(BLOCKED_IPS))
 
 BLOCKED_IPS = set(load_json(BLOCKED_FILE, []))
 
-# ============ دوال مساعدة ============
+# ============ مساعدات ============
 def get_ip():
     return (request.headers.get("X-Forwarded-For", request.remote_addr or "?")
             .split(",")[0].strip())
@@ -125,7 +123,7 @@ def rate_limit(max_calls=20, window=60):
             now = time.time()
             RATE_LIMITS[ip] = [t for t in RATE_LIMITS[ip] if now - t < window]
             if len(RATE_LIMITS[ip]) >= max_calls:
-                return jsonify({"reply": "ارسلت رسائل كثيرة. انتظر."}), 429
+                return jsonify({"reply": "ارسلت رسائل كثيرة."}), 429
             RATE_LIMITS[ip].append(now)
             return fn(*a, **kw)
         return wrapper
@@ -149,12 +147,12 @@ def admin_required(fn):
         return fn(*a, **kw)
     return wrapper
 
-# ============ بحث ويكيبيديا ============
+# ============ ويكيبيديا ============
 def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/26.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/27.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -162,11 +160,11 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/26.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/27.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
-        return f"معلومات من ويكيبيديا ({title}):\n{extract[:700]}" if extract else None
+        return f"معلومات ({title}):\n{extract[:700]}" if extract else None
     except Exception:
         return None
 
@@ -180,22 +178,22 @@ OWNER_INFO = """
 """
 
 RULES = """
-قواعد الهوية - إلزامية:
+قواعد الهوية:
 1. إذا سئلت "من صنعك؟" اجب: "طورني محمد كامل."
 2. ممنوع ذكر اي شركة تقنية او اسماء نماذج اخرى.
 3. اسمك Moka AI.
-4. ممنوع تماما الرد على اي سؤال جنسي او اباحي او عنيف.
+4. ممنوع الرد على اي سؤال جنسي او اباحي او عنيف.
 5. رفض المحتوى الضار او الكراهية.
 
 اللغة: اجب بنفس لغة السؤال.
-التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم. للكود ```.
-الشخصية: ذكي، مختصر، ودود، محترم.
+التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم.
+الشخصية: ذكي، مختصر، ودود.
 """
 
 MODES = {
-    "general":   "أنت مساعد عام. تجيب عن أي سؤال بوضوح.",
+    "general":   "أنت مساعد عام. تجيب بوضوح.",
     "math":      "أنت خبير رياضيات. اشرح خطوة بخطوة.",
-    "code":      "أنت خبير برمجة. اكتب كودًا نظيفًا كاملًا.",
+    "code":      "أنت خبير برمجة. اكتب كودًا نظيفًا.",
     "religion":  "أنت مساعد علوم إسلامية. مصادرك: القرآن، البخاري، مسلم.",
     "translate": "أنت مترجم محترف.",
     "summary":   "أنت خبير تلخيص.",
@@ -217,55 +215,37 @@ def clean_reply(text):
 # ============ استدعاء AI ============
 def call_ai(messages, mode="general", max_tokens=1500):
     if not GROQ_API_KEY:
-        print("[AI] ERROR: GROQ_API_KEY فارغ!")
-        return "مفتاح API غير مضبوط. أضف GROQ_API_KEY في Environment."
-
+        return "مفتاح API غير مضبوط."
     system = build_system(mode)
     full = [{"role": "system", "content": system}] + messages[-20:]
-
     last_error = ""
     for model in GROQ_MODELS:
         try:
             payload = json.dumps({
-                "model": model,
-                "messages": full,
-                "temperature": 0.7,
-                "max_tokens": max_tokens,
+                "model": model, "messages": full,
+                "temperature": 0.7, "max_tokens": max_tokens,
             }).encode("utf-8")
-
             req = urllib.request.Request(
                 GROQ_URL, data=payload,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                    "User-Agent": "MokaAI/26.0",
-                },
-                method="POST"
-            )
-
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}",
+                         "Content-Type": "application/json",
+                         "User-Agent": "MokaAI/27.0"},
+                method="POST")
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode("utf-8"))
-
             reply = data["choices"][0]["message"]["content"].strip()
             if reply:
-                print(f"[AI] OK | model={model} | len={len(reply)}")
+                print(f"[AI] OK | {model}")
                 return clean_reply(reply)
-
         except urllib.error.HTTPError as e:
-            try:
-                err_body = e.read().decode("utf-8")[:200]
-            except Exception:
-                err_body = ""
             last_error = f"HTTP {e.code}"
-            print(f"[AI] FAIL | {model} | {last_error}: {err_body}")
+            print(f"[AI] FAIL | {model} | {last_error}")
             continue
-
         except Exception as e:
-            last_error = f"{type(e).__name__}"
-            print(f"[AI] FAIL | {model} | {last_error}: {str(e)[:150]}")
+            last_error = type(e).__name__
+            print(f"[AI] FAIL | {model} | {last_error}")
             continue
-
-    return "⚠️ تعذر الاتصال بالخدمة. حاول مرة أخرى."
+    return "⚠️ تعذر الاتصال. حاول مرة أخرى."
 
 # ============ Routes ============
 
@@ -274,7 +254,7 @@ def index():
     STATS["visitors"] = STATS.get("visitors", 0) + 1
     save_stats()
     if get_ip() in BLOCKED_IPS:
-        return "🚫 تم حظر وصولك.", 403
+        return "تم حظر وصولك.", 403
     return render_template_string(HTML_APP)
 
 
@@ -286,27 +266,23 @@ def api_register():
     n = data.get("name", "").strip() or u
 
     if not u or not p:
-        return jsonify({"ok": False, "msg": "أدخل اسم المستخدم وكلمة السر"}), 400
+        return jsonify({"ok": False, "msg": "أدخل البيانات"}), 400
     if len(u) < 3 or len(u) > 30:
-        return jsonify({"ok": False, "msg": "الاسم بين 3 و 30 حرف"}), 400
+        return jsonify({"ok": False, "msg": "الاسم بين 3 و 30"}), 400
     if len(p) < 6:
-        return jsonify({"ok": False, "msg": "كلمة السر 6 أحرف على الأقل"}), 400
+        return jsonify({"ok": False, "msg": "كلمة السر 6 احرف"}), 400
     if not re.match(r"^[a-zA-Z0-9_]+$", u):
-        return jsonify({"ok": False, "msg": "الاسم بحروف إنجليزية وأرقام فقط"}), 400
+        return jsonify({"ok": False, "msg": "حروف انجليزية وارقام فقط"}), 400
     if u == ADMIN_USERNAME:
-        return jsonify({"ok": False, "msg": "هذا الاسم محجوز"}), 403
+        return jsonify({"ok": False, "msg": "الاسم محجوز"}), 403
     if u in USERS:
-        return jsonify({"ok": False, "msg": "الاسم موجود مسبقًا"}), 409
+        return jsonify({"ok": False, "msg": "الاسم موجود"}), 409
 
     USERS[u] = {
-        "password": hash_pw(p),
-        "name": n[:40],
-        "role": "user",
-        "created": datetime.now().isoformat(),
-        "ip": get_ip()[:15],
+        "password": hash_pw(p), "name": n[:40], "role": "user",
+        "created": datetime.now().isoformat(), "ip": get_ip()[:15],
     }
     save_users()
-
     STATS["registrations"] = STATS.get("registrations", 0) + 1
     save_stats()
 
@@ -314,7 +290,6 @@ def api_register():
     session["role"] = "user"
     session["name"] = USERS[u]["name"]
     session["sid"] = secrets.token_hex(8)
-
     return jsonify({"ok": True, "name": USERS[u]["name"], "role": "user"})
 
 
@@ -327,7 +302,6 @@ def api_login():
         return jsonify({"ok": False, "msg": "أدخل البيانات"}), 400
     if get_ip() in BLOCKED_IPS:
         return jsonify({"ok": False, "msg": "محظور"}), 403
-
     user = USERS.get(u)
     if not user or user["password"] != hash_pw(p):
         return jsonify({"ok": False, "msg": "بيانات خاطئة"}), 401
@@ -344,7 +318,6 @@ def api_login():
     })
     STATS["recent"] = STATS["recent"][-50:]
     save_stats()
-
     return jsonify({"ok": True, "name": user["name"], "role": user["role"]})
 
 
@@ -367,27 +340,45 @@ def api_chat():
     if mode not in MODES:
         mode = "general"
 
-    # توليد صورة
+    # ====== توليد صورة مع فلتر أمان ======
     if msg.startswith("/صورة ") or msg.startswith("/image "):
         prompt = msg.split(" ", 1)[1].strip()
-        if prompt:
-            STATS["images_generated"] = STATS.get("images_generated", 0) + 1
-            save_stats()
-            encoded = urllib.parse.quote(prompt)
-            img_url = (f"https://image.pollinations.ai/prompt/{encoded}"
-                       f"?width=768&height=768&nologo=true&seed={int(time.time())}")
+        if not prompt:
+            return jsonify({"reply": "اكتب وصف الصورة بعد /صورة"})
+
+        forbidden = [
+            "جنس","عاري","إباحي","بورن","شهواني","عاهرة","عريان","مثير","خليع",
+            "sex","porn","nude","naked","nsfw","erotic","xxx",
+            "breast","nipple","lingerie","bikini","seductive",
+        ]
+        if any(w in prompt.lower() for w in forbidden):
             return jsonify({
-                "reply": f"تم توليد الصورة: **{prompt}**",
-                "image": img_url
+                "reply": "🚫 عذرًا، لا يمكنني توليد صور غير لائقة. جرب وصفًا آخر."
             })
+
+        prefix = "safe for work, wholesome, family friendly, "
+        suffix = ", highly detailed, masterpiece, best quality, 8k, cinematic"
+        enhanced = prefix + prompt + suffix
+
+        STATS["images_generated"] = STATS.get("images_generated", 0) + 1
+        save_stats()
+
+        encoded = urllib.parse.quote(enhanced)
+        img_url = (f"https://image.pollinations.ai/prompt/{encoded}"
+                   f"?width=1024&height=1024&model=flux"
+                   f"&safe=true&nologo=true&enhance=true&seed={int(time.time())}")
+
+        return jsonify({
+            "reply": f"🎨 تم توليد الصورة: **{prompt}**",
+            "image": img_url
+        })
 
     conv = SESSIONS.setdefault(sid, [])
     conv.append({"role": "user", "content": msg})
 
-    # بحث تلقائي
     extra = ""
-    wiki_kw = ["ما هو", "ما هي", "من هو", "من هي", "تاريخ", "دولة",
-               "عاصمة", "تعريف", "معلومات", "أين", "متى"]
+    wiki_kw = ["ما هو","ما هي","من هو","من هي","تاريخ","دولة",
+               "عاصمة","تعريف","معلومات","أين","متى"]
     if any(k in msg for k in wiki_kw) and len(msg) > 8:
         w = search_wikipedia(msg)
         if w:
@@ -404,8 +395,7 @@ def api_chat():
     STATS["modes"][mode] = STATS["modes"].get(mode, 0) + 1
     STATS.setdefault("messages_log", []).append({
         "user": session.get("name", "?"), "mode": mode,
-        "text": msg[:100],
-        "time": now_algeria().strftime("%d/%m %H:%M"),
+        "text": msg[:100], "time": now_algeria().strftime("%d/%m %H:%M"),
     })
     STATS["messages_log"] = STATS["messages_log"][-200:]
     save_stats()
@@ -428,14 +418,39 @@ def api_voice_used():
     return jsonify({"ok": True})
 
 
+# ============ 🎙️ TTS - صوت عربي احترافي ============
+@app.route("/api/tts")
+def api_tts():
+    text = request.args.get("text", "")[:200]
+    lang = request.args.get("lang", "ar")
+    if not text:
+        return "", 400
+    try:
+        url = ("https://translate.google.com/translate_tts"
+               "?ie=UTF-8&client=tw-ob&tl=" + lang + "&q="
+               + urllib.parse.quote(text))
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Referer": "https://translate.google.com/",
+        })
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = r.read()
+        resp = Response(data, mimetype="audio/mpeg")
+        resp.headers["Cache-Control"] = "public, max-age=3600"
+        return resp
+    except Exception as e:
+        print("[TTS] " + str(e))
+        return "", 500
+
+
 @app.route("/admin")
 def admin():
     if not session.get("user"):
-        return "سجل الدخول أولا", 403
+        return "سجل الدخول", 403
     if session.get("role") != "admin":
         return "للمدير فقط", 403
     if request.args.get("key") != ADMIN_KEY:
-        return "مفتاح الإدارة مطلوب", 403
+        return "مفتاح مطلوب", 403
     return render_template_string(HTML_ADMIN, stats=STATS, users=USERS,
                                   blocked=list(BLOCKED_IPS), key=ADMIN_KEY)
 
@@ -465,10 +480,10 @@ HTML_APP = r'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Moka AI - مساعدك الذكي</title>
+<title>Moka AI</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;}
+:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 .bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -488,8 +503,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
 .login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none}
 .login-form input:focus{border-color:var(--primary)}
-.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:transform .15s}
-.login-form button.submit:active{transform:scale(.97)}
+.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
 .login-form button.submit:disabled{opacity:.6}
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
 #app{display:none;min-height:100vh;flex-direction:column}
@@ -518,7 +532,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .b .m pre{background:#000;color:#e8e8f0;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px}
 .b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;font-family:monospace}
 .b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block}
-.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;margin-top:4px}
+.msg-actions{display:flex;gap:4px;margin-top:4px;opacity:0;transition:opacity .2s}
 .mw:hover .msg-actions{opacity:1}
 .msg-actions button{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer}
 .tp{display:flex;gap:5px;padding:14px 18px}
@@ -541,7 +555,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .modal h2{font-size:22px;font-weight:900;margin-bottom:16px;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .setting{margin-bottom:16px}
 .setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600}
-.setting select,.setting input[type=range]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
+.setting select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
 .voice-test{padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px}
 .modal-close{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:12px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
 </style>
@@ -613,25 +627,32 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 
 <div class="modal" id="settingsModal">
   <button class="modal-close" onclick="closeSettings()">&#10005;</button>
-  <h2>إعدادات الصوت</h2>
+  <h2>🎙️ إعدادات الصوت</h2>
   <div class="setting">
-    <label>الصوت</label>
-    <select id="voiceSelect"></select>
+    <label>محرك الصوت</label>
+    <select id="engineSelect">
+      <option value="google">🔊 Google (عربي احترافي)</option>
+      <option value="browser">🔈 المتصفح (أساسي)</option>
+    </select>
   </div>
   <div class="setting">
-    <label>السرعة: <span id="speedVal">1.0</span></label>
-    <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1">
+    <label>اللهجة</label>
+    <select id="langSelect">
+      <option value="ar">🌍 فصحى</option>
+      <option value="ar-SA">🇸🇦 سعودية</option>
+      <option value="ar-EG">🇪🇬 مصرية</option>
+      <option value="ar-DZ">🇩🇿 جزائرية</option>
+      <option value="ar-MA">🇲🇦 مغربية</option>
+      <option value="ar-AE">🇦🇪 إماراتية</option>
+    </select>
   </div>
-  <div class="setting">
-    <label>النغمة: <span id="pitchVal">1.0</span></label>
-    <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
-  </div>
-  <button class="voice-test" onclick="testVoice()">تجربة الصوت</button>
+  <button class="voice-test" onclick="testVoice()">🎧 تجربة الصوت</button>
 </div>
 
 <script>
 let mode="general",history=[],isAdmin=false,isSending=false,userName="";
 let voiceEnabled=false;
+let currentAudio=null;
 
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
       s=document.getElementById("s"),errEl=document.getElementById("err"),
@@ -669,9 +690,9 @@ function addMsg(text,who,imageUrl){
   if(who==="b"){
     const actions=document.createElement("div");actions.className="msg-actions";
     const b1=document.createElement("button");b1.textContent="نسخ";
-    b1.onclick=function(){navigator.clipboard.writeText(text)};
+    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="تم";setTimeout(function(){b1.textContent="نسخ"},1500)};
     const b2=document.createElement("button");b2.textContent="سماع";
-    b2.onclick=function(){var o=voiceEnabled;voiceEnabled=true;speak(text);voiceEnabled=o};
+    b2.onclick=function(){speak(text,true)};
     actions.appendChild(b1);actions.appendChild(b2);
     w.appendChild(actions);
   }
@@ -687,31 +708,12 @@ function welcome(){
     '<h2>مرحبا '+(userName||"بك")+'</h2>'+
     '<p>مساعدك الذكي من تطوير محمد كامل.<br>💡 جرب: /صورة قطة</p>'+
     '<div class="quick-chips">'+
-    '<button onclick="quick(\'اشرح الثقوب السوداء\')">الثقوب السوداء</button>'+
+    '<button onclick="quick(\'من صنعك؟\')">من صنعك؟</button>'+
     '<button onclick="quick(\'اكتب كود Python للفرز\')">كود Python</button>'+
     '<button onclick="quick(\'/صورة غروب على البحر\')">صورة غروب</button>'+
     '</div></div>';
 }
 function quick(t){i.value=t;send()}
-
-function initVoices(){
-  if(!("speechSynthesis" in window))return;
-  const sel=document.getElementById("voiceSelect");
-  const voices=speechSynthesis.getVoices();
-  const arabic=voices.filter(function(v){return v.lang.startsWith("ar")});
-  const others=voices.filter(function(v){return !v.lang.startsWith("ar")});
-  sel.innerHTML="";
-  arabic.concat(others).forEach(function(v,idx){
-    const opt=document.createElement("option");
-    opt.value=idx;opt.textContent=v.name+" ("+v.lang+")";
-    opt.dataset.voiceName=v.name;
-    sel.appendChild(opt);
-  });
-}
-if("speechSynthesis" in window){
-  speechSynthesis.onvoiceschanged=initVoices;
-  setTimeout(initVoices,100);
-}
 
 function toggleVoice(){
   voiceEnabled=!voiceEnabled;
@@ -719,43 +721,62 @@ function toggleVoice(){
   voiceBtn.innerHTML=voiceEnabled?"&#128266;":"&#128263;";
   if(voiceEnabled){
     fetch("/api/voice_used",{method:"POST"});
-    speak("تم تفعيل الصوت");
+    speak("تم تفعيل الصوت العربي",true);
   } else {
-    speechSynthesis.cancel();
+    if(currentAudio){currentAudio.pause();currentAudio=null;}
+    if(window.speechSynthesis)speechSynthesis.cancel();
   }
 }
+
 function cleanForSpeech(t){
-  return t.replace(/```[\s\S]*?```/g,"").replace(/`([^`]+)`/g,"$1")
-          .replace(/\*\*/g,"").replace(/[#*_]/g,"").slice(0,500);
+  return t.replace(/```[\s\S]*?```/g,"")
+          .replace(/`([^`]+)`/g,"$1")
+          .replace(/\*\*/g,"")
+          .replace(/[#*_💡🎨⚠️]/g,"")
+          .slice(0,190);
 }
-function speak(text){
-  if(!voiceEnabled)return;
-  if(!("speechSynthesis" in window))return;
-  speechSynthesis.cancel();
+
+// 🎙️ محرك Google TTS (الأفضل للعربية)
+function speakGoogle(text){
   const clean=cleanForSpeech(text);
   if(!clean)return;
+  const lang=document.getElementById("langSelect").value;
+  if(currentAudio){currentAudio.pause();currentAudio=null;}
+  if(window.speechSynthesis)speechSynthesis.cancel();
+  const url="/api/tts?lang="+lang+"&text="+encodeURIComponent(clean);
+  currentAudio=new Audio(url);
+  currentAudio.play().catch(function(){});
+}
+
+// 🎙️ محرك المتصفح (احتياطي)
+function speakBrowser(text){
+  if(!("speechSynthesis" in window))return;
+  const clean=cleanForSpeech(text);
+  if(!clean)return;
+  speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(clean);
-  const sel=document.getElementById("voiceSelect");
-  const chosen=sel.options[sel.selectedIndex];
-  if(chosen && chosen.dataset.voiceName){
-    const v=speechSynthesis.getVoices().find(function(vv){return vv.name===chosen.dataset.voiceName});
-    if(v)u.voice=v;
-    u.lang=v?v.lang:"ar-SA";
-  } else {u.lang="ar-SA";}
-  u.rate=parseFloat(document.getElementById("speedRange").value)||1;
-  u.pitch=parseFloat(document.getElementById("pitchRange").value)||1;
+  const lang=document.getElementById("langSelect").value;
+  u.lang=lang;
+  u.rate=1;
+  const voices=speechSynthesis.getVoices();
+  const v=voices.find(function(vv){return vv.lang.startsWith(lang.slice(0,2))});
+  if(v)u.voice=v;
   speechSynthesis.speak(u);
 }
-function openSettings(){document.getElementById("settingsModal").classList.add("on");initVoices();}
+
+function speak(text,force){
+  if(!voiceEnabled && !force)return;
+  const engine=document.getElementById("engineSelect").value;
+  if(engine==="google")speakGoogle(text);
+  else speakBrowser(text);
+}
+
+function openSettings(){document.getElementById("settingsModal").classList.add("on");}
 function closeSettings(){document.getElementById("settingsModal").classList.remove("on");}
-document.getElementById("speedRange").addEventListener("input",function(e){
-  document.getElementById("speedVal").textContent=e.target.value;
-});
-document.getElementById("pitchRange").addEventListener("input",function(e){
-  document.getElementById("pitchVal").textContent=e.target.value;
-});
 function testVoice(){
-  var o=voiceEnabled;voiceEnabled=true;speak("مرحبا، أنا Moka AI من تطوير محمد كامل.");voiceEnabled=o;
+  const o=voiceEnabled;voiceEnabled=true;
+  speak("مرحبا، أنا Moka AI، مساعدك الذكي من تطوير محمد كامل. كيف يمكنني مساعدتك؟",true);
+  setTimeout(function(){voiceEnabled=o;},100);
 }
 
 let recognition=null;
@@ -765,7 +786,8 @@ function toggleMic(){
   }
   if(recognition){recognition.stop();return}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();recognition.lang="ar-SA";
+  recognition=new SR();
+  recognition.lang=document.getElementById("langSelect").value;
   recognition.onstart=function(){micBtn.classList.add("rec")};
   recognition.onend=function(){micBtn.classList.remove("rec");recognition=null};
   recognition.onerror=function(){micBtn.classList.remove("rec");recognition=null};
@@ -895,7 +917,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 <div class="grid">
   <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
   <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
-  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات جديدة</div></div>
+  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
   <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
   <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
@@ -942,7 +964,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
   {% if blocked %}
     {% for ip in blocked %}
     <div class="row"><span>{{ ip }}</span>
-      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء الحظر</a></div>
+      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء</a></div>
     {% endfor %}
   {% else %}
     <div class="row"><span class="meta">لا يوجد</span></div>
@@ -957,10 +979,116 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("=" * 50)
-    print("Moka AI v26.0 - نهائي")
+    print("Moka AI v27.0 - صوت عربي احترافي")
     print("المطور: محمد كامل")
     print("المدير: " + ADMIN_USERNAME)
     print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
-    print("النموذج الأساسي: " + GROQ_MODELS[0])
+    print("=" * 50)
+    app.run(host="0.0.0.0", port=port, debug=False)
+
+# ============ HTML لوحة الإدارة ============
+
+HTML_ADMIN = r'''<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة الإدارة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+body{font-family:Cairo;background:#0a0a12;color:#e8e8f0;padding:22px;min-height:100vh}
+h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+.sub{color:#8b8ba8;font-size:13px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
+.card{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lbl{font-size:12px;color:#8b8ba8;margin-top:6px}
+.box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
+.box h2{font-size:16px;font-weight:800;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
+.row:last-child{border-bottom:none}
+.row .meta{color:#8b8ba8;font-size:12px}
+.badge{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.msg-item{padding:10px;background:rgba(0,0,0,.2);border-radius:12px;margin-bottom:6px;font-size:13px}
+.msg-item .meta{display:flex;justify-content:space-between;color:#8b8ba8;font-size:11px;margin-bottom:4px}
+a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
+a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
+</style>
+</head>
+<body>
+<a href="/" class="back">← رجوع</a>
+<h1>لوحة الإدارة</h1>
+<div class="sub">من تطوير محمد كامل</div>
+
+<div class="grid">
+  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
+  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات</div></div>
+  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
+  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
+  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
+</div>
+
+<div class="box">
+  <h2>الأنماط</h2>
+  {% for k, v in stats.modes.items() %}
+  <div class="row"><span>{{ k }}</span><b>{{ v }}</b></div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>المستخدمون</h2>
+  {% for u, info in users.items() %}
+  <div class="row">
+    <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
+    <span class="badge {{ 'user' if info.role != 'admin' else '' }}">{{ info.role }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>تسجيلات حديثة</h2>
+  {% for r in stats.recent[-15:]|reverse %}
+  <div class="row"><span>{{ r.name }}</span>
+    <span class="meta">{{ r.ip }} - {{ r.time }}</span></div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>آخر 20 رسالة</h2>
+  {% for m in stats.messages_log[-20:]|reverse %}
+  <div class="msg-item">
+    <div class="meta"><span>{{ m.user }} - {{ m.mode }}</span><span>{{ m.time }}</span></div>
+    <div>{{ m.text }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>IP محظورة</h2>
+  {% if blocked %}
+    {% for ip in blocked %}
+    <div class="row"><span>{{ ip }}</span>
+      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء</a></div>
+    {% endfor %}
+  {% else %}
+    <div class="row"><span class="meta">لا يوجد</span></div>
+  {% endif %}
+</div>
+</body>
+</html>'''
+
+
+# ============ التشغيل ============
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print("=" * 50)
+    print("Moka AI v27.0 - صوت عربي احترافي")
+    print("المطور: محمد كامل")
+    print("المدير: " + ADMIN_USERNAME)
+    print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
     print("=" * 50)
     app.run(host="0.0.0.0", port=port, debug=False)
