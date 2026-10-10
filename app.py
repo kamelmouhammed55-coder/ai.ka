@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v27.0 - مع صوت عربي احترافي
+#  Moka AI v28.0 - Professional Edition
 #  المطور: محمد كامل
 # ============================================================
 
@@ -22,13 +22,11 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
-# ============ المدير ============
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "kameladmin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "KamelDz2026Prime")
 ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "mokaadmin2026")
 SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 
-# ============ Groq ============
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -36,12 +34,9 @@ GROQ_MODELS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
     "qwen/qwen3-32b",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
     "llama-3.3-70b-versatile",
-    "llama-3.1-8b-instant",
 ]
 
-# ============ الملفات ============
 DATA_DIR     = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE   = os.path.join(DATA_DIR, "users.json")
 STATS_FILE   = os.path.join(DATA_DIR, "stats.json")
@@ -50,8 +45,8 @@ BLOCKED_FILE = os.path.join(DATA_DIR, "blocked.json")
 BLOCKED_IPS = set()
 RATE_LIMITS = defaultdict(list)
 SESSIONS    = {}
+BOOKS       = {}
 
-# ============ دوال التخزين ============
 def load_json(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -69,7 +64,6 @@ def save_json(path, data):
 def hash_pw(pw):
     return hashlib.sha256((pw + SECRET_SALT).encode("utf-8")).hexdigest()
 
-# ============ المستخدمون ============
 USERS = load_json(USERS_FILE, {})
 if ADMIN_USERNAME not in USERS:
     USERS[ADMIN_USERNAME] = {
@@ -80,12 +74,11 @@ if ADMIN_USERNAME not in USERS:
     }
     save_json(USERS_FILE, USERS)
 
-# ============ الإحصائيات ============
 DEFAULT_STATS = {
     "visitors": 0, "logins": 0, "registrations": 0, "messages": 0,
-    "images_generated": 0, "voice_used": 0,
-    "modes": {m: 0 for m in ["general","math","code","religion",
-                              "translate","summary","creative","science"]},
+    "images_generated": 0, "voice_used": 0, "books_generated": 0,
+    "modes": {m: 0 for m in ["general","write","code","math","translate",
+                              "summary","religion","science"]},
     "recent": [], "messages_log": [],
     "started_at": datetime.now().isoformat(),
 }
@@ -99,7 +92,6 @@ def save_blocked(): save_json(BLOCKED_FILE, list(BLOCKED_IPS))
 
 BLOCKED_IPS = set(load_json(BLOCKED_FILE, []))
 
-# ============ مساعدات ============
 def get_ip():
     return (request.headers.get("X-Forwarded-For", request.remote_addr or "?")
             .split(",")[0].strip())
@@ -115,7 +107,7 @@ def alg_date_context():
     return (f"اليوم: {days[d.weekday()]} {d.day} {months[d.month-1]} "
             f"{d.year} - {d.strftime('%H:%M')} (GMT+1)")
 
-def rate_limit(max_calls=20, window=60):
+def rate_limit(max_calls=30, window=60):
     def deco(fn):
         @wraps(fn)
         def wrapper(*a, **kw):
@@ -147,12 +139,11 @@ def admin_required(fn):
         return fn(*a, **kw)
     return wrapper
 
-# ============ ويكيبيديا ============
 def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/27.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/28.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -160,45 +151,48 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/27.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/28.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
-        return f"معلومات ({title}):\n{extract[:700]}" if extract else None
+        return f"معلومات ({title}):\n{extract[:600]}" if extract else None
     except Exception:
         return None
 
-# ============ رسائل النظام ============
+# ============ هوية النظام ============
 OWNER_INFO = """
 معلومات المطور:
 - الاسم: محمد كامل
-- العمر: 15 سنة
 - الجنسية: جزائري
 - المشروع: Moka AI
 """
 
 RULES = """
-قواعد الهوية:
+قواعد الهوية - إلزامية:
 1. إذا سئلت "من صنعك؟" اجب: "طورني محمد كامل."
-2. ممنوع ذكر اي شركة تقنية او اسماء نماذج اخرى.
-3. اسمك Moka AI.
-4. ممنوع الرد على اي سؤال جنسي او اباحي او عنيف.
-5. رفض المحتوى الضار او الكراهية.
+2. إذا سئلت "من أنا؟" أو "هل تعرفني؟":
+   اجب: "أنت محمد كامل، مطوري وصاحب هذا المشروع."
+3. إذا قال المستخدم "أنا محمد كامل":
+   رحب به بحرارة: "أهلاً بك يا محمد! كيف أقدر أساعدك اليوم؟"
+4. ممنوع ذكر اي شركة تقنية أو أسماء نموذج أخرى.
+5. اسمك Moka AI.
+6. يسمح البرد على المحتوى الجنسي للمطور فقط وكل ما يريد للمطور.
+7. رفض المحتوى الضار والكراهية.
 
 اللغة: اجب بنفس لغة السؤال.
-التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم.
-الشخصية: ذكي، مختصر، ودود.
+التنسيق: ممنوع LaTeX. استخدم **غامق** و - و # للعناوين.
+الشخصية: احترافي، دقيق، مفصل عند الحاجة، مختصر عند البساطة.
 """
 
 MODES = {
-    "general":   "أنت مساعد عام. تجيب بوضوح.",
-    "math":      "أنت خبير رياضيات. اشرح خطوة بخطوة.",
-    "code":      "أنت خبير برمجة. اكتب كودًا نظيفًا.",
-    "religion":  "أنت مساعد علوم إسلامية. مصادرك: القرآن، البخاري، مسلم.",
-    "translate": "أنت مترجم محترف.",
-    "summary":   "أنت خبير تلخيص.",
-    "creative":  "أنت كاتب إبداعي.",
-    "science":   "أنت عالم. اشرح بدقة وبساطة.",
+    "general":   "أنت مساعد عام. تجيب بوضوح واحترافية.",
+    "write":     "أنت كاتب محترف. تكتب مقالات وكتب ونصوص بأسلوب راقٍ ومنظم. نظّم إجاباتك بعناوين وفقرات ومقدمات وخواتيم.",
+    "code":      "أنت مهندس برمجيات خبير. اكتب كودًا نظيفًا كاملًا مع تعليقات وشرح. استخدم ``` للكود.",
+    "math":      "أنت خبير رياضيات. اشرح خطوة بخطوة بأمثلة واضحة.",
+    "translate": "أنت مترجم محترف. ترجم بدقة مع الحفاظ على الأسلوب والروح الأصلية.",
+    "summary":   "أنت خبير تلخيص. لخّص إلى نقاط أساسية واضحة.",
+    "religion":  "أنت مساعد علوم إسلامية. مصادرك: القرآن، صحيح البخاري، صحيح مسلم، كتب التفسير.",
+    "science":   "أنت عالم. اشرح الظواهر العلمية بدقة ومراجع واضحة.",
 }
 
 def build_system(mode):
@@ -212,8 +206,7 @@ def clean_reply(text):
     text = text.replace("\\text", "").replace("\\displaystyle", "")
     return text.strip()
 
-# ============ استدعاء AI ============
-def call_ai(messages, mode="general", max_tokens=1500):
+def call_ai(messages, mode="general", max_tokens=2000):
     if not GROQ_API_KEY:
         return "مفتاح API غير مضبوط."
     system = build_system(mode)
@@ -229,9 +222,9 @@ def call_ai(messages, mode="general", max_tokens=1500):
                 GROQ_URL, data=payload,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}",
                          "Content-Type": "application/json",
-                         "User-Agent": "MokaAI/27.0"},
+                         "User-Agent": "MokaAI/28.0"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 data = json.loads(r.read().decode("utf-8"))
             reply = data["choices"][0]["message"]["content"].strip()
             if reply:
@@ -245,7 +238,47 @@ def call_ai(messages, mode="general", max_tokens=1500):
             last_error = type(e).__name__
             print(f"[AI] FAIL | {model} | {last_error}")
             continue
-    return "⚠️ تعذر الاتصال. حاول مرة أخرى."
+    return "⚠️ تعذر الاتصال بالخدمة."
+
+# ============ 📚 مولّد الكتب ============
+def generate_book(topic):
+    """يولّد كتابًا من 3 فصول مع فهرس ومقدمة"""
+    book = {"topic": topic, "toc": "", "chapters": [], "intro": ""}
+
+    # 1. الفهرس
+    toc_prompt = [
+        {"role": "user", "content":
+         f"اكتب فهرسًا احترافيًا لكتاب عن: '{topic}'.\n"
+         f"اجعل الفهرس من 3 فصول رئيسية فقط.\n"
+         f"لكل فصل: رقم + عنوان + 3 عناوين فرعية.\n"
+         f"اكتب بلغة عربية فصيحة. لا تضف أي شرح، فقط الفهرس."}
+    ]
+    book["toc"] = call_ai(toc_prompt, mode="write", max_tokens=600)
+
+    # 2. المقدمة
+    intro_prompt = [
+        {"role": "user", "content":
+         f"اكتب مقدمة احترافية لكتاب عن: '{topic}'.\n"
+         f"المقدمة من 3 فقرات: تعريف الموضوع، أهميته، ما سيقدمه الكتاب.\n"
+         f"بلغة عربية راقية وأسلوب جذاب."}
+    ]
+    book["intro"] = call_ai(intro_prompt, mode="write", max_tokens=800)
+
+    # 3. الفصول الثلاثة
+    chapters_titles = ["الفصل الأول", "الفصل الثاني", "الفصل الثالث"]
+    for i, ct in enumerate(chapters_titles, 1):
+        ch_prompt = [
+            {"role": "user", "content":
+             f"اكتب {ct} من كتاب عن: '{topic}'.\n"
+             f"الفصل من 500 كلمة.\n"
+             f"قسّمه إلى 3 أقسام فرعية بعناوين.\n"
+             f"استخدم أسلوبًا أكاديميًا احترافيًا.\n"
+             f"لا تكرر المقدمة. ابدأ من حيث انتهت."}
+        ]
+        ch = call_ai(ch_prompt, mode="write", max_tokens=1800)
+        book["chapters"].append({"title": ct, "content": ch})
+
+    return book
 
 # ============ Routes ============
 
@@ -264,7 +297,6 @@ def api_register():
     u = data.get("username", "").strip()
     p = data.get("password", "")
     n = data.get("name", "").strip() or u
-
     if not u or not p:
         return jsonify({"ok": False, "msg": "أدخل البيانات"}), 400
     if len(u) < 3 or len(u) > 30:
@@ -272,12 +304,11 @@ def api_register():
     if len(p) < 6:
         return jsonify({"ok": False, "msg": "كلمة السر 6 احرف"}), 400
     if not re.match(r"^[a-zA-Z0-9_]+$", u):
-        return jsonify({"ok": False, "msg": "حروف انجليزية وارقام فقط"}), 400
+        return jsonify({"ok": False, "msg": "حروف انجليزية فقط"}), 400
     if u == ADMIN_USERNAME:
         return jsonify({"ok": False, "msg": "الاسم محجوز"}), 403
     if u in USERS:
         return jsonify({"ok": False, "msg": "الاسم موجود"}), 409
-
     USERS[u] = {
         "password": hash_pw(p), "name": n[:40], "role": "user",
         "created": datetime.now().isoformat(), "ip": get_ip()[:15],
@@ -285,7 +316,6 @@ def api_register():
     save_users()
     STATS["registrations"] = STATS.get("registrations", 0) + 1
     save_stats()
-
     session["user"] = u
     session["role"] = "user"
     session["name"] = USERS[u]["name"]
@@ -305,12 +335,10 @@ def api_login():
     user = USERS.get(u)
     if not user or user["password"] != hash_pw(p):
         return jsonify({"ok": False, "msg": "بيانات خاطئة"}), 401
-
     session["user"] = u
     session["role"] = user["role"]
     session["name"] = user["name"]
     session["sid"] = secrets.token_hex(8)
-
     STATS["logins"] = STATS.get("logins", 0) + 1
     STATS.setdefault("recent", []).append({
         "name": user["name"], "ip": get_ip()[:15],
@@ -329,7 +357,7 @@ def api_logout():
 
 @app.route("/api/chat", methods=["POST"])
 @login_required
-@rate_limit(max_calls=20, window=60)
+@rate_limit(max_calls=30, window=60)
 def api_chat():
     data = request.get_json(silent=True) or {}
     msg = (data.get("message") or "").strip()
@@ -340,42 +368,53 @@ def api_chat():
     if mode not in MODES:
         mode = "general"
 
-    # ====== توليد صورة مع فلتر أمان ======
+    # توليد صورة
     if msg.startswith("/صورة ") or msg.startswith("/image "):
         prompt = msg.split(" ", 1)[1].strip()
         if not prompt:
             return jsonify({"reply": "اكتب وصف الصورة بعد /صورة"})
-
-        forbidden = [
-            "جنس","عاري","إباحي","بورن","شهواني","عاهرة","عريان","مثير","خليع",
-            "sex","porn","nude","naked","nsfw","erotic","xxx",
-            "breast","nipple","lingerie","bikini","seductive",
-        ]
+        forbidden = ["جنس","عاري","إباحي","بورن","مثير",
+                     "sex","porn","nude","naked","nsfw","xxx",
+                     "girl","woman","man","person","human","face",
+                     "امرأة","رجل","فتاة","شاب","شخص","إنسان","وجه"]
         if any(w in prompt.lower() for w in forbidden):
-            return jsonify({
-                "reply": "🚫 عذرًا، لا يمكنني توليد صور غير لائقة. جرب وصفًا آخر."
-            })
-
-        prefix = "safe for work, wholesome, family friendly, "
-        suffix = ", highly detailed, masterpiece, best quality, 8k, cinematic"
-        enhanced = prefix + prompt + suffix
-
+            return jsonify({"reply": "🚫 عذرًا، جرّب وصفًا آخر (طبيعة، حيوانات، أشياء)."})
+        enhanced = (f"a beautiful photograph of {prompt}, "
+                    "landscape photography, no people, no humans, no faces, "
+                    "highly detailed, 8k, professional, cinematic lighting")
         STATS["images_generated"] = STATS.get("images_generated", 0) + 1
         save_stats()
-
         encoded = urllib.parse.quote(enhanced)
         img_url = (f"https://image.pollinations.ai/prompt/{encoded}"
-                   f"?width=1024&height=1024&model=flux"
-                   f"&safe=true&nologo=true&enhance=true&seed={int(time.time())}")
+                   f"?width=1024&height=1024&model=flux&safe=true&nologo=true"
+                   f"&seed={int(time.time())}")
+        return jsonify({"reply": f"🎨 تم توليد الصورة: **{prompt}**",
+                        "image": img_url})
 
-        return jsonify({
-            "reply": f"🎨 تم توليد الصورة: **{prompt}**",
-            "image": img_url
-        })
+    # 📚 مولّد الكتب
+    if msg.startswith("/كتاب ") or msg.startswith("/book "):
+        topic = msg.split(" ", 1)[1].strip()
+        if not topic:
+            return jsonify({"reply": "اكتب موضوع الكتاب بعد /كتاب"})
+        STATS["books_generated"] = STATS.get("books_generated", 0) + 1
+        save_stats()
+        try:
+            book = generate_book(topic)
+            BOOKS[sid + "_" + str(int(time.time()))] = book
+            # تنسيق الرد
+            out = f"# 📖 كتاب: {topic}\n\n"
+            out += "## 📋 الفهرس\n\n" + book["toc"] + "\n\n"
+            out += "---\n\n## ✍️ المقدمة\n\n" + book["intro"] + "\n\n---\n\n"
+            for ch in book["chapters"]:
+                out += f"## {ch['title']}\n\n{ch['content']}\n\n---\n\n"
+            out += "_📘 نهاية الكتاب_"
+            return jsonify({"reply": out, "book": True})
+        except Exception as e:
+            print("[BOOK] " + str(e))
+            return jsonify({"reply": "⚠️ فشل توليد الكتاب. حاول مرة أخرى."})
 
     conv = SESSIONS.setdefault(sid, [])
     conv.append({"role": "user", "content": msg})
-
     extra = ""
     wiki_kw = ["ما هو","ما هي","من هو","من هي","تاريخ","دولة",
                "عاصمة","تعريف","معلومات","أين","متى"]
@@ -399,7 +438,6 @@ def api_chat():
     })
     STATS["messages_log"] = STATS["messages_log"][-200:]
     save_stats()
-
     return jsonify({"reply": reply})
 
 
@@ -418,7 +456,6 @@ def api_voice_used():
     return jsonify({"ok": True})
 
 
-# ============ 🎙️ TTS - صوت عربي احترافي ============
 @app.route("/api/tts")
 def api_tts():
     text = request.args.get("text", "")[:200]
@@ -480,84 +517,145 @@ HTML_APP = r'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Moka AI</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<title>Moka AI - مساعدك الاحترافي</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4}
+:root{--bg:#08080f;--bg2:#0f0f1a;--card:rgba(20,20,35,.72);--card2:rgba(30,30,50,.6);--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);--text:#eaeaf5;--muted:#8a8aa8;--primary:#8b5cf6;--primary2:#c084fc;--accent:#06b6d4;--gold:#fbbf24;--grad:linear-gradient(135deg,#8b5cf6,#c084fc,#06b6d4)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
-.bg::before,.bg::after{content:"";position:absolute;border-radius:50%;filter:blur(110px);opacity:.4}
-.bg::before{width:520px;height:520px;background:linear-gradient(135deg,#8b5cf6,#ec4899);top:-160px;right:-160px;animation:f1 22s ease-in-out infinite}
-.bg::after{width:420px;height:420px;background:linear-gradient(135deg,#06b6d4,#8b5cf6);bottom:-160px;left:-160px;animation:f2 26s ease-in-out infinite}
-@keyframes f1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-70px,70px) scale(1.18)}}
-@keyframes f2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,-70px) scale(1.15)}}
-#login{position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.88);backdrop-filter:blur(20px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;overflow-y:auto}
-.logo-big{width:100px;height:100px;border-radius:28px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:46px;font-weight:900;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,.5);animation:float 3.5s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
-.brand-title{font-size:38px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.brand-sub{color:var(--muted);font-size:13px;margin-top:-6px;margin-bottom:8px}
-.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:5px;margin-bottom:10px;width:100%;max-width:340px}
-.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px}
-.tabs button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff}
-.login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
-.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none}
-.login-form input:focus{border-color:var(--primary)}
-.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer}
-.login-form button.submit:disabled{opacity:.6}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 20% 20%,rgba(139,92,246,.15),transparent 50%),radial-gradient(circle at 80% 80%,rgba(6,182,212,.12),transparent 50%)}
+.bg::before{content:"";position:absolute;width:600px;height:600px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#ec4899);filter:blur(140px);opacity:.25;top:-200px;right:-200px;animation:fb 24s ease-in-out infinite}
+.bg::after{content:"";position:absolute;width:500px;height:500px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#8b5cf6);filter:blur(140px);opacity:.2;bottom:-200px;left:-200px;animation:fb2 30s ease-in-out infinite}
+@keyframes fb{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,80px) scale(1.2)}}
+@keyframes fb2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,-80px) scale(1.15)}}
+
+/* ===== Login ===== */
+#login{position:fixed;inset:0;z-index:999;background:rgba(8,8,15,.92);backdrop-filter:blur(30px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px;overflow-y:auto}
+.logo-big{width:110px;height:110px;border-radius:32px;background:var(--grad);display:grid;place-items:center;font-size:52px;font-weight:900;color:#fff;box-shadow:0 24px 80px rgba(139,92,246,.6);animation:fl 4s ease-in-out infinite}
+@keyframes fl{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-16px) rotate(4deg)}}
+.brand-title{font-size:44px;font-weight:900;letter-spacing:-1.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand-sub{color:var(--muted);font-size:13px;margin-top:-4px;margin-bottom:10px;letter-spacing:.5px}
+.tabs{display:flex;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:5px;margin-bottom:12px;width:100%;max-width:360px}
+.tabs button{flex:1;padding:11px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:12px;transition:all .25s}
+.tabs button.on{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(139,92,246,.4)}
+.login-form{width:100%;max-width:360px;display:flex;flex-direction:column;gap:11px}
+.login-form input{width:100%;padding:16px 18px;border-radius:14px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:all .25s}
+.login-form input:focus{border-color:var(--primary);background:rgba(139,92,246,.08);box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+.login-form button.submit{padding:16px;border-radius:14px;border:none;background:var(--grad);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 12px 32px rgba(139,92,246,.45);transition:transform .15s}
+.login-form button.submit:active{transform:scale(.97)}
+.login-form button.submit:disabled{opacity:.5}
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
+
+/* ===== App Layout ===== */
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
-.hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
-.hd-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0}
-.hd h1{font-size:17px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.hd .sub{font-size:10px;color:var(--muted)}
-.hd-actions{margin-inline-start:auto;display:flex;gap:5px}
-.hd-actions button{width:38px;height:38px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px;display:grid;place-items:center}
-.hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
-#ch{flex:1;overflow-y:auto;padding:20px 14px 220px;display:flex;flex-direction:column;gap:14px}
-.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
-.welcome .lg{width:90px;height:90px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:42px;font-weight:900;color:#fff;animation:float 3.5s ease-in-out infinite}
-.welcome h2{font-size:24px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.welcome p{color:var(--muted);font-size:14px;max-width:320px;line-height:1.8}
-.quick-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px}
-.quick-chips button{padding:9px 16px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
-.mw{display:flex;max-width:92%;animation:msgIn .35s}
-@keyframes msgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-.mw.u{align-self:flex-start}
+.hd{display:flex;align-items:center;gap:11px;padding:12px 16px;background:rgba(12,12,22,.75);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hd-logo{width:42px;height:42px;border-radius:14px;background:var(--grad);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 8px 24px rgba(139,92,246,.4)}
+.hd h1{font-size:17px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hd .sub{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.hd .sub::before{content:"";width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e}
+.hd-actions{margin-inline-start:auto;display:flex;gap:6px}
+.hd-actions button{width:40px;height:40px;border-radius:13px;border:none;background:rgba(255,255,255,.05);color:var(--text);cursor:pointer;font-size:16px;display:grid;place-items:center;transition:all .2s}
+.hd-actions button:hover{background:rgba(255,255,255,.1)}
+.hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 0 20px rgba(34,197,94,.5)}
+
+/* ===== Chat area ===== */
+#ch{flex:1;overflow-y:auto;padding:24px 16px 240px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
+#ch::-webkit-scrollbar{width:6px}
+#ch::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px}
+
+/* Empty state */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;padding:40px 20px;min-height:60vh}
+.welcome .lg{width:100px;height:100px;border-radius:30px;background:var(--grad);display:grid;place-items:center;font-size:48px;font-weight:900;color:#fff;box-shadow:0 28px 70px rgba(139,92,246,.5);animation:fl 4s ease-in-out infinite}
+.welcome h2{font-size:28px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.welcome p{color:var(--muted);font-size:14px;max-width:340px;line-height:1.9}
+.suggest-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:440px;width:100%;margin-top:10px}
+.suggest-card{padding:14px;border-radius:16px;border:1px solid var(--border2);background:var(--card);cursor:pointer;text-align:right;transition:all .25s}
+.suggest-card:hover{border-color:var(--primary);background:rgba(139,92,246,.08);transform:translateY(-3px)}
+.suggest-card .ico{font-size:20px;margin-bottom:6px;display:block}
+.suggest-card .ttl{font-size:13px;font-weight:800;margin-bottom:3px}
+.suggest-card .dsc{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* Messages */
+.mw{display:flex;gap:10px;max-width:94%;animation:mi .4s cubic-bezier(.16,1,.3,1)}
+@keyframes mi{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
+.mw.u{align-self:flex-start;flex-direction:row-reverse}
 .mw.b{align-self:flex-end}
-.m{padding:14px 18px;border-radius:20px;line-height:1.85;white-space:pre-wrap;word-wrap:break-word;font-size:15px;position:relative}
-.u .m{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-bottom-right-radius:6px}
-.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:6px}
-.b .m pre{background:#000;color:#e8e8f0;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px}
-.b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;font-family:monospace}
-.b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block}
-.msg-actions{display:flex;gap:4px;margin-top:4px;opacity:0;transition:opacity .2s}
-.mw:hover .msg-actions{opacity:1}
-.msg-actions button{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer}
-.tp{display:flex;gap:5px;padding:14px 18px}
-.tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.2s infinite}
+.avt{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:900;font-size:14px;color:#fff;flex-shrink:0}
+.mw.u .avt{background:linear-gradient(135deg,#06b6d4,#8b5cf6)}
+.mw.b .avt{background:var(--grad)}
+.m-body{flex:1;min-width:0}
+.m-meta{display:flex;gap:8px;font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.mw.u .m-meta{justify-content:flex-start}
+.m{padding:14px 18px;border-radius:18px;line-height:1.9;word-wrap:break-word;font-size:15px;overflow-wrap:anywhere}
+.u .m{background:linear-gradient(135deg,rgba(6,182,212,.9),rgba(139,92,246,.9));color:#fff;border-top-right-radius:6px}
+.b .m{background:var(--card2);color:var(--text);border:1px solid var(--border);border-top-left-radius:6px;backdrop-filter:blur(14px)}
+.b .m h1,.b .m h2,.b .m h3{margin:10px 0 6px;font-weight:900;line-height:1.4}
+.b .m h1{font-size:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.b .m h2{font-size:17px;color:var(--primary2)}
+.b .m h3{font-size:15px;color:var(--accent)}
+.b .m p{margin:6px 0}
+.b .m strong{color:var(--primary2);font-weight:800}
+.b .m ul,.b .m ol{margin:8px 0;padding-inline-start:1.5rem}
+.b .m li{margin:4px 0}
+.b .m blockquote{border-inline-start:3px solid var(--primary);padding:6px 12px;background:rgba(139,92,246,.08);border-radius:0 10px 10px 0;margin:8px 0;font-style:italic}
+.b .m pre{background:#05050a;color:#eaeaf5;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px;font-family:'Courier New',monospace;border:1px solid var(--border2)}
+.b .m code{background:rgba(139,92,246,.2);padding:2px 7px;border-radius:6px;font-family:monospace;font-size:.9em;direction:ltr;display:inline-block}
+.b .m pre code{background:transparent;padding:0;color:inherit;display:block}
+.b .m hr{border:none;border-top:1px solid var(--border2);margin:14px 0}
+.b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.b .m a{color:var(--accent);text-decoration:underline}
+.msg-actions{display:flex;gap:5px;opacity:0;transition:opacity .25s;margin-top:6px}
+.mw:hover .msg-actions,.mw:focus-within .msg-actions{opacity:1}
+.msg-actions button{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:5px 11px;border-radius:9px;font-size:11px;font-family:inherit;cursor:pointer;font-weight:600;transition:all .2s}
+.msg-actions button:hover{color:var(--primary2);border-color:var(--primary);background:rgba(139,92,246,.1)}
+
+.tp{display:flex;gap:5px;padding:14px 18px;align-items:center}
+.tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.3s infinite}
 .tp span:nth-child(2){animation-delay:.15s}
 .tp span:nth-child(3){animation-delay:.3s}
-@keyframes bnc{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-6px);opacity:1}}
-.input-area{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 16px;background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:40}
-.modes{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px}
-.modes button{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:12px;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
-.modes button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-color:transparent}
-.input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:8px}
-#i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:10px 14px;font-family:inherit;font-size:15px;max-height:140px}
-.btn-mic{width:44px;height:44px;border-radius:14px;border:none;background:rgba(255,255,255,.08);color:var(--text);font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
-.btn-mic.rec{background:#dc2626;color:#fff}
-#s{width:44px;height:44px;border:none;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
+@keyframes bnc{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-7px);opacity:1}}
+
+/* Input area */
+.input-area{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 18px;background:linear-gradient(to top,var(--bg) 55%,transparent);z-index:40}
+.modes{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.modes::-webkit-scrollbar{display:none}
+.modes button{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:12px;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
+.modes button:hover{color:var(--text);background:var(--card2)}
+.modes button.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(139,92,246,.4)}
+.input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card2);border:1.5px solid var(--border2);border-radius:24px;padding:8px;backdrop-filter:blur(20px);transition:border-color .25s}
+.input-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+#i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:11px 14px;font-family:inherit;font-size:15px;max-height:160px;line-height:1.6}
+#i::placeholder{color:var(--muted)}
+.btn-mic,#s{width:46px;height:46px;border-radius:15px;border:none;font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:all .2s}
+.btn-mic{background:rgba(255,255,255,.06);color:var(--text)}
+.btn-mic:hover{background:rgba(255,255,255,.12)}
+.btn-mic.rec{background:#dc2626;color:#fff;animation:pr 1s infinite}
+@keyframes pr{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+#s{background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(139,92,246,.45)}
+#s:hover:not(:disabled){transform:scale(1.06)}
+#s:active:not(:disabled){transform:scale(.94)}
 #s:disabled{opacity:.4}
-.modal{position:fixed;inset:0;background:rgba(10,10,20,.9);backdrop-filter:blur(20px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
+
+/* Modal */
+.modal{position:fixed;inset:0;background:rgba(8,8,15,.94);backdrop-filter:blur(24px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
 .modal.on{display:flex}
-.modal h2{font-size:22px;font-weight:900;margin-bottom:16px;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.setting{margin-bottom:16px}
-.setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600}
-.setting select{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
-.voice-test{padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px}
-.modal-close{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:12px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
+.modal-inner{max-width:500px;margin:0 auto;width:100%}
+.modal h2{font-size:22px;font-weight:900;margin-bottom:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.setting{margin-bottom:18px}
+.setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:8px;font-weight:600}
+.setting select,.setting input[type=range]{width:100%;padding:13px;border-radius:13px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
+.setting select:focus{border-color:var(--primary)}
+.voice-test{padding:14px;border-radius:13px;border:none;background:var(--grad);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:8px;box-shadow:0 10px 26px rgba(139,92,246,.4)}
+.modal-close{position:absolute;top:18px;left:18px;width:42px;height:42px;border-radius:13px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
+
+@media(max-width:600px){
+  .suggest-grid{grid-template-columns:1fr}
+  .welcome .lg{width:85px;height:85px;font-size:40px}
+  .welcome h2{font-size:22px}
+  .m{font-size:14px;padding:12px 15px}
+  .brand-title{font-size:36px}
+}
 </style>
 </head>
 <body>
@@ -595,7 +693,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
     <div class="hd-logo">M</div>
     <div>
       <h1>Moka AI</h1>
-      <div class="sub" id="userInfo">من تطوير محمد كامل</div>
+      <div class="sub" id="userInfo">جاري التحميل...</div>
     </div>
     <div class="hd-actions">
       <button id="voiceBtn" onclick="toggleVoice()">&#128263;</button>
@@ -608,51 +706,54 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 
   <div class="input-area">
     <div class="modes">
-      <button class="on" data-m="general" onclick="sw('general')">عامة</button>
-      <button data-m="math" onclick="sw('math')">رياضيات</button>
-      <button data-m="code" onclick="sw('code')">برمجة</button>
-      <button data-m="religion" onclick="sw('religion')">دين</button>
-      <button data-m="translate" onclick="sw('translate')">ترجمة</button>
-      <button data-m="summary" onclick="sw('summary')">ملخص</button>
-      <button data-m="creative" onclick="sw('creative')">ابداع</button>
-      <button data-m="science" onclick="sw('science')">علوم</button>
+      <button class="on" data-m="general" onclick="sw('general')">💬 عامة</button>
+      <button data-m="write" onclick="sw('write')">✍️ كتابة</button>
+      <button data-m="code" onclick="sw('code')">💻 برمجة</button>
+      <button data-m="math" onclick="sw('math')">📐 رياضيات</button>
+      <button data-m="translate" onclick="sw('translate')">🌍 ترجمة</button>
+      <button data-m="summary" onclick="sw('summary')">📝 ملخص</button>
+      <button data-m="religion" onclick="sw('religion')">🕌 دين</button>
+      <button data-m="science" onclick="sw('science')">🔬 علوم</button>
     </div>
     <div class="input-box">
       <button class="btn-mic" id="micBtn" onclick="toggleMic()">&#127908;</button>
-      <textarea id="i" rows="1" placeholder="اكتب... او /صورة قطة"></textarea>
+      <textarea id="i" rows="1" placeholder="اكتب رسالتك... او /كتاب او /صورة"></textarea>
       <button id="s" onclick="send()">&#10148;</button>
     </div>
   </div>
 </div>
 
 <div class="modal" id="settingsModal">
-  <button class="modal-close" onclick="closeSettings()">&#10005;</button>
-  <h2>🎙️ إعدادات الصوت</h2>
-  <div class="setting">
-    <label>محرك الصوت</label>
-    <select id="engineSelect">
-      <option value="google">🔊 Google (عربي احترافي)</option>
-      <option value="browser">🔈 المتصفح (أساسي)</option>
-    </select>
+  <div class="modal-inner">
+    <button class="modal-close" onclick="closeSettings()">&#10005;</button>
+    <h2>🎙️ إعدادات الصوت</h2>
+    <div class="setting">
+      <label>محرك الصوت</label>
+      <select id="engineSelect">
+        <option value="google">🔊 Google (عربي احترافي)</option>
+        <option value="browser">🔈 المتصفح (أساسي)</option>
+      </select>
+    </div>
+    <div class="setting">
+      <label>اللهجة</label>
+      <select id="langSelect">
+        <option value="ar">🌍 فصحى</option>
+        <option value="ar-SA">🇸🇦 سعودية</option>
+        <option value="ar-EG">🇪🇬 مصرية</option>
+        <option value="ar-DZ">🇩🇿 جزائرية</option>
+        <option value="ar-MA">🇲🇦 مغربية</option>
+        <option value="ar-AE">🇦🇪 إماراتية</option>
+        <option value="ar-IQ">🇮🇶 عراقية</option>
+        <option value="ar-SY">🇸🇾 سورية</option>
+      </select>
+    </div>
+    <button class="voice-test" onclick="testVoice()">🎧 تجربة الصوت</button>
   </div>
-  <div class="setting">
-    <label>اللهجة</label>
-    <select id="langSelect">
-      <option value="ar">🌍 فصحى</option>
-      <option value="ar-SA">🇸🇦 سعودية</option>
-      <option value="ar-EG">🇪🇬 مصرية</option>
-      <option value="ar-DZ">🇩🇿 جزائرية</option>
-      <option value="ar-MA">🇲🇦 مغربية</option>
-      <option value="ar-AE">🇦🇪 إماراتية</option>
-    </select>
-  </div>
-  <button class="voice-test" onclick="testVoice()">🎧 تجربة الصوت</button>
 </div>
 
 <script>
 let mode="general",history=[],isAdmin=false,isSending=false,userName="";
-let voiceEnabled=false;
-let currentAudio=null;
+let voiceEnabled=false,currentAudio=null;
 
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
       s=document.getElementById("s"),errEl=document.getElementById("err"),
@@ -672,13 +773,30 @@ function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g
 function md(t){
   let h=esc(t);
   h=h.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,l,c){return "<pre><code>"+c+"</code></pre>"});
+  h=h.replace(/^###### (.+)$/gm,"<h3>$1</h3>");
+  h=h.replace(/^##### (.+)$/gm,"<h3>$1</h3>");
+  h=h.replace(/^#### (.+)$/gm,"<h3>$1</h3>");
+  h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");
+  h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");
+  h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
+  h=h.replace(/^&gt; (.+)$/gm,"<blockquote>$1</blockquote>");
+  h=h.replace(/^---$/gm,"<hr>");
   h=h.replace(/`([^`]+)`/g,"<code>$1</code>");
   h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  h=h.replace(/^\s*[-*] (.+)$/gm,"<li>$1</li>");
+  h=h.replace(/(<li>[\s\S]*?<\/li>)/g,function(m){return "<ul>"+m+"</ul>"});
   h=h.replace(/\n/g,"<br>");
   return h;
 }
-function addMsg(text,who,imageUrl){
+
+function addMsg(text,who,imageUrl,time){
+  time = time || new Date().toLocaleTimeString('ar-DZ',{hour:'2-digit',minute:'2-digit'});
   const w=document.createElement("div");w.className="mw "+who;
+  const avt=document.createElement("div");avt.className="avt";
+  avt.textContent=who==="u"?(userName||"أ").charAt(0).toUpperCase():"M";
+  const body=document.createElement("div");body.className="m-body";
+  const meta=document.createElement("div");meta.className="m-meta";
+  meta.innerHTML="<span>"+(who==="u"?(userName||"أنت"):"Moka AI")+"</span><span>"+time+"</span>";
   const m=document.createElement("div");m.className="m";
   m.innerHTML=who==="b"?md(text):esc(text);
   if(imageUrl){
@@ -686,31 +804,43 @@ function addMsg(text,who,imageUrl){
     img.src=imageUrl;img.alt="صورة";
     m.appendChild(img);
   }
-  w.appendChild(m);
+  body.appendChild(meta);body.appendChild(m);
   if(who==="b"){
     const actions=document.createElement("div");actions.className="msg-actions";
-    const b1=document.createElement("button");b1.textContent="نسخ";
-    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="تم";setTimeout(function(){b1.textContent="نسخ"},1500)};
-    const b2=document.createElement("button");b2.textContent="سماع";
+    const b1=document.createElement("button");b1.textContent="📋 نسخ";
+    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="✅ تم";setTimeout(function(){b1.textContent="📋 نسخ"},1500)};
+    const b2=document.createElement("button");b2.textContent="🔊 سماع";
     b2.onclick=function(){speak(text,true)};
-    actions.appendChild(b1);actions.appendChild(b2);
-    w.appendChild(actions);
+    const b3=document.createElement("button");b3.textContent="💾 تحميل";
+    b3.onclick=function(){
+      const bl=new Blob([text],{type:"text/plain;charset=utf-8"});
+      const a=document.createElement("a");a.href=URL.createObjectURL(bl);
+      a.download="moka-"+Date.now()+".txt";a.click();
+    };
+    actions.appendChild(b1);actions.appendChild(b2);actions.appendChild(b3);
+    body.appendChild(actions);
   }
+  w.appendChild(avt);
+  w.appendChild(body);
   ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
 }
 function typ(){
   const w=document.createElement("div");w.className="mw b";w.id="tp";
-  w.innerHTML='<div class="m tp"><span></span><span></span><span></span></div>';
+  const avt=document.createElement("div");avt.className="avt";avt.textContent="M";
+  const body=document.createElement("div");body.className="m-body";
+  body.innerHTML='<div class="m tp"><span></span><span></span><span></span></div>';
+  w.appendChild(avt);w.appendChild(body);
   ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w;
 }
 function welcome(){
   ch.innerHTML='<div class="welcome"><div class="lg">M</div>'+
-    '<h2>مرحبا '+(userName||"بك")+'</h2>'+
-    '<p>مساعدك الذكي من تطوير محمد كامل.<br>💡 جرب: /صورة قطة</p>'+
-    '<div class="quick-chips">'+
-    '<button onclick="quick(\'من صنعك؟\')">من صنعك؟</button>'+
-    '<button onclick="quick(\'اكتب كود Python للفرز\')">كود Python</button>'+
-    '<button onclick="quick(\'/صورة غروب على البحر\')">صورة غروب</button>'+
+    '<h2>مرحبا '+(userName||"بك")+' 👋</h2>'+
+    '<p>مساعدك الذكي الاحترافي من تطوير محمد كامل.<br>اختر نمطًا أو ابدأ بأحد الاقتراحات.</p>'+
+    '<div class="suggest-grid">'+
+    '<div class="suggest-card" onclick="quick(\'من أنا؟\')"><span class="ico">👋</span><div class="ttl">تعرف عليّ</div><div class="dsc">من أنا بالنسبة لك؟</div></div>'+
+    '<div class="suggest-card" onclick="quick(\'/كتاب تاريخ الجزائر\')"><span class="ico">📚</span><div class="ttl">مولّد الكتب</div><div class="dsc">كتاب كامل عن أي موضوع</div></div>'+
+    '<div class="suggest-card" onclick="quick(\'اكتب كود Python لفرز قائمة\')"><span class="ico">💻</span><div class="ttl">برمجة</div><div class="dsc">كود نظيف مع شرح</div></div>'+
+    '<div class="suggest-card" onclick="quick(\'/صورة غروب على البحر\')"><span class="ico">🎨</span><div class="ttl">توليد صورة</div><div class="dsc">وصف طبيعي بجودة عالية</div></div>'+
     '</div></div>';
 }
 function quick(t){i.value=t;send()}
@@ -723,32 +853,24 @@ function toggleVoice(){
     fetch("/api/voice_used",{method:"POST"});
     speak("تم تفعيل الصوت العربي",true);
   } else {
-    if(currentAudio){currentAudio.pause();currentAudio=null;}
+    if(currentAudio){currentAudio.pause();currentAudio=null}
     if(window.speechSynthesis)speechSynthesis.cancel();
   }
 }
 
 function cleanForSpeech(t){
-  return t.replace(/```[\s\S]*?```/g,"")
-          .replace(/`([^`]+)`/g,"$1")
-          .replace(/\*\*/g,"")
-          .replace(/[#*_💡🎨⚠️]/g,"")
-          .slice(0,190);
+  return t.replace(/```[\s\S]*?```/g,"").replace(/`([^`]+)`/g,"$1")
+          .replace(/[#*_]/g,"").replace(/\n+/g," ").slice(0,190);
 }
-
-// 🎙️ محرك Google TTS (الأفضل للعربية)
 function speakGoogle(text){
   const clean=cleanForSpeech(text);
   if(!clean)return;
   const lang=document.getElementById("langSelect").value;
-  if(currentAudio){currentAudio.pause();currentAudio=null;}
+  if(currentAudio){currentAudio.pause();currentAudio=null}
   if(window.speechSynthesis)speechSynthesis.cancel();
-  const url="/api/tts?lang="+lang+"&text="+encodeURIComponent(clean);
-  currentAudio=new Audio(url);
+  currentAudio=new Audio("/api/tts?lang="+lang+"&text="+encodeURIComponent(clean));
   currentAudio.play().catch(function(){});
 }
-
-// 🎙️ محرك المتصفح (احتياطي)
 function speakBrowser(text){
   if(!("speechSynthesis" in window))return;
   const clean=cleanForSpeech(text);
@@ -757,26 +879,23 @@ function speakBrowser(text){
   const u=new SpeechSynthesisUtterance(clean);
   const lang=document.getElementById("langSelect").value;
   u.lang=lang;
-  u.rate=1;
   const voices=speechSynthesis.getVoices();
   const v=voices.find(function(vv){return vv.lang.startsWith(lang.slice(0,2))});
   if(v)u.voice=v;
   speechSynthesis.speak(u);
 }
-
 function speak(text,force){
   if(!voiceEnabled && !force)return;
   const engine=document.getElementById("engineSelect").value;
   if(engine==="google")speakGoogle(text);
   else speakBrowser(text);
 }
-
-function openSettings(){document.getElementById("settingsModal").classList.add("on");}
-function closeSettings(){document.getElementById("settingsModal").classList.remove("on");}
+function openSettings(){document.getElementById("settingsModal").classList.add("on")}
+function closeSettings(){document.getElementById("settingsModal").classList.remove("on")}
 function testVoice(){
   const o=voiceEnabled;voiceEnabled=true;
-  speak("مرحبا، أنا Moka AI، مساعدك الذكي من تطوير محمد كامل. كيف يمكنني مساعدتك؟",true);
-  setTimeout(function(){voiceEnabled=o;},100);
+  speak("مرحبا، أنا Moka AI، مساعدك الذكي من تطوير محمد كامل.",true);
+  setTimeout(function(){voiceEnabled=o},100);
 }
 
 let recognition=null;
@@ -831,9 +950,10 @@ function enterApp(name,role){
   userName=name;isAdmin=role==="admin";
   document.getElementById("login").style.display="none";
   document.getElementById("app").classList.add("on");
-  document.getElementById("userInfo").textContent="مرحبا "+name+(isAdmin?" (مدير)":"");
+  document.getElementById("userInfo").textContent="مرحبا "+name+(isAdmin?" • مدير":"");
   welcome();i.focus();
 }
+
 async function send(){
   const t=i.value.trim();
   if(!t||isSending)return;
@@ -841,6 +961,11 @@ async function send(){
   addMsg(t,"u");history.push({role:"user",content:t});
   i.value="";i.style.height="auto";isSending=true;s.disabled=true;
   const tp=typ();
+  const isBook=t.startsWith("/كتاب ")||t.startsWith("/book ");
+  if(isBook){
+    const tt=tp.querySelector(".m");
+    if(tt)tt.innerHTML='<div style="padding:4px 0">📚 <b>جاري تأليف الكتاب...</b><br><small style="opacity:.7">قد يستغرق دقيقة (فهرس + مقدمة + 3 فصول)</small></div>';
+  }
   try{
     const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:t,mode:mode,history:history.slice(0,-1)})});
@@ -848,8 +973,8 @@ async function send(){
     const reply=d.reply||"لا يوجد رد.";
     addMsg(reply,"b",d.image||null);
     history.push({role:"assistant",content:reply});
-    if(voiceEnabled && !d.image){speak(reply);}
-  }catch(e){tp.remove();addMsg("تعذر الاتصال","b")}
+    if(voiceEnabled && !d.image && !isBook){speak(reply);}
+  }catch(e){tp.remove();addMsg("تعذر الاتصال بالخادم","b")}
   finally{isSending=false;s.disabled=false;i.focus()}
 }
 function sw(m){mode=m;document.querySelectorAll(".modes button").forEach(function(b){
@@ -867,11 +992,11 @@ function openSidebar(){
     const txt=history.map(function(m){return "["+(m.role==="user"?"أنا":"Moka")+"] "+m.content}).join("\n\n");
     const bl=new Blob([txt],{type:"text/plain;charset=utf-8"});
     const a2=document.createElement("a");a2.href=URL.createObjectURL(bl);
-    a2.download="moka-"+Date.now()+".txt";a2.click();
+    a2.download="moka-chat-"+Date.now()+".txt";a2.click();
   } else if(ch2==="تسجيل الخروج"){if(confirm("خروج؟"))fetch("/api/logout",{method:"POST"}).then(function(){location.reload()})}
 }
 i.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
-i.addEventListener("input",function(){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,140)+"px"});
+i.addEventListener("input",function(){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,160)+"px"});
 document.getElementById("lp").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
 document.getElementById("rp2").addEventListener("keydown",function(e){if(e.key==="Enter")doRegister()});
 </script>
@@ -886,25 +1011,25 @@ HTML_ADMIN = r'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>لوحة الإدارة</title>
+<title>لوحة الإدارة — Moka AI</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
-body{font-family:Cairo;background:#0a0a12;color:#e8e8f0;padding:22px;min-height:100vh}
-h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
-.sub{color:#8b8ba8;font-size:13px;margin-bottom:20px}
+body{font-family:Cairo;background:#08080f;color:#eaeaf5;padding:22px;min-height:100vh}
+h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#c084fc,#06b6d4);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+.sub{color:#8a8aa8;font-size:13px;margin-bottom:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
-.card{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
-.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.lbl{font-size:12px;color:#8b8ba8;margin-top:6px}
-.box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
+.card{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#c084fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lbl{font-size:12px;color:#8a8aa8;margin-top:6px}
+.box{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
 .box h2{font-size:16px;font-weight:800;margin-bottom:12px}
 .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
 .row:last-child{border-bottom:none}
-.row .meta{color:#8b8ba8;font-size:12px}
-.badge{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.row .meta{color:#8a8aa8;font-size:12px}
+.badge{background:linear-gradient(135deg,#8b5cf6,#c084fc);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
 .badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.msg-item{padding:10px;background:rgba(0,0,0,.2);border-radius:12px;margin-bottom:6px;font-size:13px}
-.msg-item .meta{display:flex;justify-content:space-between;color:#8b8ba8;font-size:11px;margin-bottom:4px}
+.msg-item{padding:10px;background:rgba(0,0,0,.25);border-radius:12px;margin-bottom:6px;font-size:13px}
+.msg-item .meta{display:flex;justify-content:space-between;color:#8a8aa8;font-size:11px;margin-bottom:4px}
 a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
 a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
 </style>
@@ -919,6 +1044,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
   <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
   <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ stats.books_generated }}</div><div class="lbl">كتب</div></div>
   <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
   <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
   <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
@@ -945,7 +1071,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
   <h2>تسجيلات حديثة</h2>
   {% for r in stats.recent[-15:]|reverse %}
   <div class="row"><span>{{ r.name }}</span>
-    <span class="meta">{{ r.ip }} - {{ r.time }}</span></div>
+    <span class="meta">{{ r.ip }} — {{ r.time }}</span></div>
   {% endfor %}
 </div>
 
@@ -953,7 +1079,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
   <h2>آخر 20 رسالة</h2>
   {% for m in stats.messages_log[-20:]|reverse %}
   <div class="msg-item">
-    <div class="meta"><span>{{ m.user }} - {{ m.mode }}</span><span>{{ m.time }}</span></div>
+    <div class="meta"><span>{{ m.user }} — {{ m.mode }}</span><span>{{ m.time }}</span></div>
     <div>{{ m.text }}</div>
   </div>
   {% endfor %}
@@ -978,117 +1104,11 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print("=" * 50)
-    print("Moka AI v27.0 - صوت عربي احترافي")
+    print("=" * 55)
+    print("Moka AI v28.0 — Professional Edition")
     print("المطور: محمد كامل")
     print("المدير: " + ADMIN_USERNAME)
     print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
-    print("=" * 50)
+    print("=" * 55)
     app.run(host="0.0.0.0", port=port, debug=False)
 
-# ============ HTML لوحة الإدارة ============
-
-HTML_ADMIN = r'''<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>لوحة الإدارة</title>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
-<style>
-body{font-family:Cairo;background:#0a0a12;color:#e8e8f0;padding:22px;min-height:100vh}
-h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
-.sub{color:#8b8ba8;font-size:13px;margin-bottom:20px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
-.card{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
-.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
-.lbl{font-size:12px;color:#8b8ba8;margin-top:6px}
-.box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
-.box h2{font-size:16px;font-weight:800;margin-bottom:12px}
-.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
-.row:last-child{border-bottom:none}
-.row .meta{color:#8b8ba8;font-size:12px}
-.badge{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
-.badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
-.msg-item{padding:10px;background:rgba(0,0,0,.2);border-radius:12px;margin-bottom:6px;font-size:13px}
-.msg-item .meta{display:flex;justify-content:space-between;color:#8b8ba8;font-size:11px;margin-bottom:4px}
-a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
-a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
-</style>
-</head>
-<body>
-<a href="/" class="back">← رجوع</a>
-<h1>لوحة الإدارة</h1>
-<div class="sub">من تطوير محمد كامل</div>
-
-<div class="grid">
-  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
-  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
-  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات</div></div>
-  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
-  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
-  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
-  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
-</div>
-
-<div class="box">
-  <h2>الأنماط</h2>
-  {% for k, v in stats.modes.items() %}
-  <div class="row"><span>{{ k }}</span><b>{{ v }}</b></div>
-  {% endfor %}
-</div>
-
-<div class="box">
-  <h2>المستخدمون</h2>
-  {% for u, info in users.items() %}
-  <div class="row">
-    <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
-    <span class="badge {{ 'user' if info.role != 'admin' else '' }}">{{ info.role }}</span>
-  </div>
-  {% endfor %}
-</div>
-
-<div class="box">
-  <h2>تسجيلات حديثة</h2>
-  {% for r in stats.recent[-15:]|reverse %}
-  <div class="row"><span>{{ r.name }}</span>
-    <span class="meta">{{ r.ip }} - {{ r.time }}</span></div>
-  {% endfor %}
-</div>
-
-<div class="box">
-  <h2>آخر 20 رسالة</h2>
-  {% for m in stats.messages_log[-20:]|reverse %}
-  <div class="msg-item">
-    <div class="meta"><span>{{ m.user }} - {{ m.mode }}</span><span>{{ m.time }}</span></div>
-    <div>{{ m.text }}</div>
-  </div>
-  {% endfor %}
-</div>
-
-<div class="box">
-  <h2>IP محظورة</h2>
-  {% if blocked %}
-    {% for ip in blocked %}
-    <div class="row"><span>{{ ip }}</span>
-      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء</a></div>
-    {% endfor %}
-  {% else %}
-    <div class="row"><span class="meta">لا يوجد</span></div>
-  {% endif %}
-</div>
-</body>
-</html>'''
-
-
-# ============ التشغيل ============
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    print("=" * 50)
-    print("Moka AI v27.0 - صوت عربي احترافي")
-    print("المطور: محمد كامل")
-    print("المدير: " + ADMIN_USERNAME)
-    print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
-    print("=" * 50)
-    app.run(host="0.0.0.0", port=port, debug=False)
