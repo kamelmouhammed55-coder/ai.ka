@@ -1002,7 +1002,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
   {% endif %}
 </div>
 </body>
-</html>"""
+</html>'''
 
 
 # ============================================================
