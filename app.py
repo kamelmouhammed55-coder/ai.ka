@@ -896,7 +896,7 @@ document.getElementById("u").addEventListener("keydown", e => {
 #  HTML — لوحة الإدارة
 # ============================================================
 
-HTML_ADMIN = r"""<!DOCTYPE html>
+HTML_ADMIN = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -1013,5 +1013,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print(f"🚀 Moka AI v20.0 يعمل على http://0.0.0.0:{port}")
     print(f"   المطوّر: محمد كامل")
-    print(f"   المزودون: {[p['name'] for p in PROVIDERS if p['key']]}")
+    print(f"   المزودون: {[p['name'] for p in  PROVIDERS if p['key']]}")
     app.run(host="0.0.0.0", port=port, debug=False)
