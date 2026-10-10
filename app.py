@@ -191,32 +191,68 @@ def clean_reply(t):
     return t.strip()
 
 def call_ai(messages, mode="general", max_tokens=2000):
-    if not GROQ_API_KEY:
-        return "مفتاح API غير مضبوط."
-    full = [{"role": "system", "content": build_system(mode)}] + messages[-20:]
-    for model in GROQ_MODELS:
-        try:
-            print(f"[AI] {model}", flush=True)
-            payload = json.dumps({
-                "model": model, "messages": full,
-                "temperature": 0.7, "max_tokens": max_tokens,
-            }).encode("utf-8")
-            req = urllib.request.Request(
-                GROQ_URL, data=payload,
-                headers={"Authorization": f"Bearer {GROQ_API_KEY}",
-                         "Content-Type": "application/json"},
-                method="POST")
-            with urllib.request.urlopen(req, timeout=45) as r:
-                data = json.loads(r.read().decode("utf-8"))
-            reply = data["choices"][0]["message"]["content"].strip()
-            if reply:
-                return clean_reply(reply)
-        except urllib.error.HTTPError as e:
-            print(f"[AI] HTTP {e.code}", flush=True)
-            continue
-        except Exception as e:
-            print(f"[AI] {type(e).__name__}", flush=True)
-            continue
+    system = build_system(mode)
+    full = [{"role": "system", "content": system}] + messages[-20:]
+
+    if GROQ_API_KEY:
+        for model in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+            try:
+                print(f"[Groq] {model}", flush=True)
+                payload = json.dumps({
+                    "model": model, "messages": full,
+                    "temperature": 0.7, "max_tokens": max_tokens,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    data=payload,
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}",
+                             "Content-Type": "application/json"},
+                    method="POST")
+                with urllib.request.urlopen(req, timeout=45) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                reply = data["choices"][0]["message"]["content"].strip()
+                if reply:
+                    print("[Groq] OK", flush=True)
+                    return clean_reply(reply)
+            except urllib.error.HTTPError as e:
+                print(f"[Groq] HTTP {e.code}", flush=True)
+                continue
+            except Exception as e:
+                print(f"[Groq] {type(e).__name__}", flush=True)
+                continue
+
+    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    if or_key:
+        for model in ["meta-llama/llama-3.3-70b-instruct:free",
+                      "google/gemma-2-9b-it:free",
+                      "mistralai/mistral-7b-instruct:free"]:
+            try:
+                print(f"[OR] {model}", flush=True)
+                payload = json.dumps({
+                    "model": model, "messages": full,
+                    "temperature": 0.7, "max_tokens": max_tokens,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    data=payload,
+                    headers={"Authorization": f"Bearer {or_key}",
+                             "Content-Type": "application/json",
+                             "HTTP-Referer": "https://ai-ka.onrender.com",
+                             "X-Title": "Moka AI"},
+                    method="POST")
+                with urllib.request.urlopen(req, timeout=60) as r:
+                    data = json.loads(r.read().decode("utf-8"))
+                reply = data["choices"][0]["message"]["content"].strip()
+                if reply:
+                    print("[OR] OK", flush=True)
+                    return clean_reply(reply)
+            except urllib.error.HTTPError as e:
+                print(f"[OR] HTTP {e.code}", flush=True)
+                continue
+            except Exception as e:
+                print(f"[OR] {type(e).__name__}", flush=True)
+                continue
+
     return "⚠️ تعذر الاتصال بالخدمة."
 
 def generate_book(topic):
