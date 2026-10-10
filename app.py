@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v22.0 — مع نظام تسجيل المستخدمين
+#  Moka AI v23.0 — نسخة نهائية مستقرة
 #  المطوّر: محمد كامل
 # ============================================================
 
@@ -23,18 +23,17 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 # ============================================================
-#  👑 حساب المدير (محمد كامل) — خاص بك وحدك
+#  👑 حساب المدير (كلمات سر بدون رموز معقدة)
 # ============================================================
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "km_kamel_admin_2026")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Kamel@Dz#2026!Prime$X9")
-ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "moka_admin_key_2026_dz_x9_secret")
-SECRET_SALT    = os.environ.get("SECRET_SALT",    "moka_salt_2026_kamel_x9_secure")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "kameladmin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "KamelDz2026Prime")
+ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "mokaadmin2026")
+SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 
 # ============================================================
 #  🤖 مفاتيح API
 # ============================================================
-GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "").strip()
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 
 PROVIDERS = [
     {"name": "groq",
@@ -42,15 +41,10 @@ PROVIDERS = [
      "key": GROQ_API_KEY,
      "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant",
                 "mixtral-8x7b-32768", "gemma2-9b-it"]},
-    {"name": "openrouter",
-     "url": "https://openrouter.ai/api/v1/chat/completions",
-     "key": OPENROUTER_API_KEY,
-     "models": ["meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemma-2-9b-it:free"]},
 ]
 
 # ============================================================
-#  📁 الملفات
+#  📁 ملفات التخزين
 # ============================================================
 DATA_DIR     = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE   = os.path.join(DATA_DIR, "users.json")
@@ -86,7 +80,6 @@ def hash_pw(pw):
 # ============================================================
 USERS = load_json(USERS_FILE, {})
 
-# إنشاء حساب المدير تلقائيًا إذا لم يوجد
 if ADMIN_USERNAME not in USERS:
     USERS[ADMIN_USERNAME] = {
         "password": hash_pw(ADMIN_PASSWORD),
@@ -132,7 +125,7 @@ def alg_date_context():
               "جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     days = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
     return (f"اليوم: {days[d.weekday()]} {d.day} {months[d.month-1]} "
-            f"{d.year} — {d.strftime('%H:%M')} بتوقيت الجزائر")
+            f"{d.year} - {d.strftime('%H:%M')} بتوقيت الجزائر")
 
 def rate_limit(max_calls=20, window=60):
     def deco(fn):
@@ -142,7 +135,7 @@ def rate_limit(max_calls=20, window=60):
             now = time.time()
             RATE_LIMITS[ip] = [t for t in RATE_LIMITS[ip] if now - t < window]
             if len(RATE_LIMITS[ip]) >= max_calls:
-                return jsonify({"reply": "⏳ أرسلت رسائل كثيرة."}), 429
+                return jsonify({"reply": "أرسلت رسائل كثيرة. انتظر."}), 429
             RATE_LIMITS[ip].append(now)
             return fn(*a, **kw)
         return wrapper
@@ -162,7 +155,7 @@ def admin_required(fn):
     @wraps(fn)
     def wrapper(*a, **kw):
         if session.get("role") != "admin" and request.args.get("key") != ADMIN_KEY:
-            return "🔒 وصول مرفوض", 403
+            return "مرفوض", 403
         return fn(*a, **kw)
     return wrapper
 
@@ -173,7 +166,7 @@ def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/22.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/23.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -181,11 +174,11 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/22.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/23.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
-        return f"📖 {title}:\n{extract[:800]}" if extract else None
+        return f"معلومات: {title}\n{extract[:800]}" if extract else None
     except Exception:
         return None
 
@@ -193,7 +186,7 @@ def search_wikipedia(query):
 #  🧠 رسائل النظام
 # ============================================================
 OWNER_INFO = """
-【معلومات المطوّر】
+معلومات المطوّر:
 - الاسم: محمد كامل
 - العمر: 15 سنة
 - الجنسية: جزائري
@@ -201,18 +194,17 @@ OWNER_INFO = """
 """
 
 RULES = """
-【قواعد الهوية — إلزامية】
-1. إذا سُئلت "من صنعك؟" أجب: "طوّرني محمد كامل."
-2. ممنوع ذكر أي شركة تقنية أو أسماء نماذج أخرى.
+قواعد الهوية - إلزامية:
+1. إذا سئلت "من صنعك؟" اجب: "طورني محمد كامل."
+2. ممنوع ذكر أي شركة تقنية أو أسماء نماذج اخرى.
 3. اسمك Moka AI.
-4. ❌ ممنوع تمامًا الرد على أي سؤال جنسي أو إباحي أو عنيف.
-   - إذا سُئلت عن هذا، اعتذر بجملة قصيرة: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
-   - ثم اقترح موضوعًا آخر مفيدًا.
-5. رفض أي طلب لكتابة محتوى ضار أو كراهية.
+4. ممنوع تماما الرد على أي سؤال جنسي أو اباحي أو عنيف.
+   - إذا سئلت عن هذا، اعتذر: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
+5. رفض أي طلب لكتابة محتوى ضار.
 
-【اللغة】 أجب بنفس لغة السؤال.
-【التنسيق】 ممنوع LaTeX و ###. استخدم **غامق** و - للقوائم.
-【الشخصية】 ذكي، مختصر، ودود، محترم.
+اللغة: اجب بنفس لغة السؤال.
+التنسيق: ممنوع LaTeX و ###.
+الشخصية: ذكي، مختصر، ودود، محترم.
 """
 
 MODES = {
@@ -252,26 +244,26 @@ def call_ai(messages, mode="general", max_tokens=1500):
                     provider["url"], data=payload,
                     headers={"Authorization": f"Bearer {provider['key']}",
                              "Content-Type": "application/json",
-                             "User-Agent": "MokaAI/22.0"},
+                             "User-Agent": "MokaAI/23.0"},
                     method="POST")
                 with urllib.request.urlopen(req, timeout=45) as r:
                     data = json.loads(r.read().decode("utf-8"))
                 reply = data["choices"][0]["message"]["content"].strip()
                 if reply:
-                    print(f"[AI] ✅ {provider['name']} → {model}")
+                    print(f"[AI] OK {provider['name']} {model}")
                     return clean_reply(reply)
             except urllib.error.HTTPError as e:
                 last_err = f"HTTP {e.code}"
-                print(f"[AI] ❌ {provider['name']}/{model}: {last_err}")
+                print(f"[AI] FAIL {provider['name']}/{model}: {last_err}")
                 continue
             except Exception as e:
                 last_err = str(e)[:80]
-                print(f"[AI] ❌ {provider['name']}/{model}: {e}")
+                print(f"[AI] FAIL {provider['name']}/{model}: {e}")
                 continue
-    return f"⚠️ تعذر الاتصال بجميع المزودين. ({last_err})"
+    return f"تعذر الاتصال. ({last_err})"
 
 # ============================================================
-#  🌐 Routes
+#  Routes
 # ============================================================
 
 @app.route("/")
@@ -279,11 +271,10 @@ def index():
     STATS["visitors"] = STATS.get("visitors", 0) + 1
     save_stats()
     if get_ip() in BLOCKED_IPS:
-        return "🚫 تم حظر وصولك.", 403
+        return "تم حظر وصولك.", 403
     return render_template_string(HTML_APP)
 
 
-# ---------- تسجيل مستخدم جديد ----------
 @app.route("/api/register", methods=["POST"])
 def api_register():
     data = request.get_json(silent=True) or {}
@@ -291,25 +282,19 @@ def api_register():
     p = data.get("password", "")
     n = data.get("name", "").strip() or u
 
-    # تحقق من صحة البيانات
     if not u or not p:
         return jsonify({"ok": False, "msg": "أدخل اسم المستخدم وكلمة السر"}), 400
     if len(u) < 3 or len(u) > 30:
-        return jsonify({"ok": False, "msg": "اسم المستخدم يجب أن يكون بين 3 و 30 حرفًا"}), 400
+        return jsonify({"ok": False, "msg": "الاسم بين 3 و 30 حرف"}), 400
     if len(p) < 6:
-        return jsonify({"ok": False, "msg": "كلمة السر يجب أن تكون 6 أحرف على الأقل"}), 400
+        return jsonify({"ok": False, "msg": "كلمة السر 6 أحرف على الأقل"}), 400
     if not re.match(r"^[a-zA-Z0-9_]+$", u):
-        return jsonify({"ok": False, "msg": "اسم المستخدم يقبل حروف وأرقام و _ فقط"}), 400
-
-    # منع استخدام اسم المدير
+        return jsonify({"ok": False, "msg": "الاسم بحروف إنجليزية وأرقام فقط"}), 400
     if u == ADMIN_USERNAME:
         return jsonify({"ok": False, "msg": "هذا الاسم محجوز"}), 403
-
-    # هل الاسم موجود؟
     if u in USERS:
-        return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقًا"}), 409
+        return jsonify({"ok": False, "msg": "الاسم موجود مسبقا"}), 409
 
-    # إنشاء الحساب
     USERS[u] = {
         "password": hash_pw(p),
         "name": n[:40],
@@ -322,7 +307,6 @@ def api_register():
     STATS["registrations"] = STATS.get("registrations", 0) + 1
     save_stats()
 
-    # تسجيل دخول تلقائي
     session["user"] = u
     session["role"] = "user"
     session["name"] = USERS[u]["name"]
@@ -331,7 +315,6 @@ def api_register():
     return jsonify({"ok": True, "name": USERS[u]["name"], "role": "user"})
 
 
-# ---------- تسجيل الدخول ----------
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
@@ -376,7 +359,6 @@ def api_me():
                     "role": session.get("role")})
 
 
-# ---------- المحادثة ----------
 @app.route("/api/chat", methods=["POST"])
 @login_required
 @rate_limit(max_calls=20, window=60)
@@ -428,15 +410,14 @@ def api_clear():
     return jsonify({"ok": True})
 
 
-# ---------- لوحة الإدارة ----------
 @app.route("/admin")
 def admin():
     if not session.get("user"):
-        return "🔒 يجب تسجيل الدخول أولًا", 403
+        return "سجل الدخول أولا", 403
     if session.get("role") != "admin":
-        return "🔒 وصول مرفوض — للمدير فقط", 403
+        return "للمدير فقط", 403
     if request.args.get("key") != ADMIN_KEY:
-        return "🔒 مفتاح الإدارة مطلوب", 403
+        return "مفتاح الإدارة مطلوب", 403
     return render_template_string(HTML_ADMIN, stats=STATS, users=USERS,
                                   blocked=list(BLOCKED_IPS), key=ADMIN_KEY)
 
@@ -458,8 +439,9 @@ def admin_unblock(ip):
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "time": now_algeria().isoformat()})
+
 # ============================================================
-#  🎨 HTML — الواجهة الرئيسية
+#  الواجهة الرئيسية
 # ============================================================
 
 HTML_APP = r'''<!DOCTYPE html>
@@ -467,150 +449,70 @@ HTML_APP = r'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Moka AI — مساعدك الذكي</title>
+<title>Moka AI - مساعدك الذكي</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);
-  --text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--secondary:#ec4899;--accent:#06b6d4;}
-[data-theme="light"]{--bg:#f4f4fa;--card:rgba(255,255,255,.85);
-  --border:rgba(0,0,0,.08);--text:#1a1a2e;--muted:#666}
+:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);
-  min-height:100vh;overflow-x:hidden;transition:background .3s,color .3s}
+body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 .bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
 .bg::before,.bg::after{content:"";position:absolute;border-radius:50%;filter:blur(110px);opacity:.4}
-.bg::before{width:520px;height:520px;background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  top:-160px;right:-160px;animation:f1 22s ease-in-out infinite}
-.bg::after{width:420px;height:420px;background:linear-gradient(135deg,#06b6d4,#8b5cf6);
-  bottom:-160px;left:-160px;animation:f2 26s ease-in-out infinite}
+.bg::before{width:520px;height:520px;background:linear-gradient(135deg,#8b5cf6,#ec4899);top:-160px;right:-160px;animation:f1 22s ease-in-out infinite}
+.bg::after{width:420px;height:420px;background:linear-gradient(135deg,#06b6d4,#8b5cf6);bottom:-160px;left:-160px;animation:f2 26s ease-in-out infinite}
 @keyframes f1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-70px,70px) scale(1.18)}}
 @keyframes f2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,-70px) scale(1.15)}}
-#login{position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.88);
-  backdrop-filter:blur(20px);display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:24px;gap:12px;overflow-y:auto}
-[data-theme="light"] #login{background:rgba(240,240,250,.92)}
-.logo-big{width:100px;height:100px;border-radius:28px;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;
-  font-size:46px;font-weight:900;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,.5);
-  animation:float 3.5s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(3deg)}}
-.brand-title{font-size:38px;font-weight:900;letter-spacing:-1px;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
+#login{position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.88);backdrop-filter:blur(20px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:12px;overflow-y:auto}
+.logo-big{width:100px;height:100px;border-radius:28px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:46px;font-weight:900;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,.5);animation:float 3.5s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.brand-title{font-size:38px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand-sub{color:var(--muted);font-size:13px;margin-top:-6px;margin-bottom:8px}
-.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);
-  border-radius:14px;padding:5px;margin-bottom:10px}
-.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);
-  font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px;transition:all .2s}
-.tabs button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
-  box-shadow:0 4px 12px rgba(139,92,246,.4)}
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:5px;margin-bottom:10px;width:100%;max-width:340px}
+.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px;transition:all .2s}
+.tabs button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff}
 .login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
-.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);
-  background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;
-  transition:all .2s;backdrop-filter:blur(10px)}
+.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:all .2s}
 .login-form input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(139,92,246,.15)}
-.login-form button.submit{padding:15px;border-radius:14px;border:none;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;
-  font-weight:800;font-family:inherit;cursor:pointer;
-  box-shadow:0 10px 26px rgba(139,92,246,.4);transition:transform .15s}
+.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 10px 26px rgba(139,92,246,.4);transition:transform .15s}
 .login-form button.submit:active{transform:scale(.97)}
 .login-form button.submit:disabled{opacity:.6}
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
-.hd{display:flex;align-items:center;gap:12px;padding:12px 16px;
-  background:var(--card);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:50}
-.hd-logo{width:40px;height:40px;border-radius:13px;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;
-  font-size:20px;font-weight:900;color:#fff;box-shadow:0 6px 20px rgba(139,92,246,.4);flex-shrink:0}
-.hd h1{font-size:17px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
-.hd .sub{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px}
-.hd .sub::before{content:"";width:6px;height:6px;border-radius:50%;background:#22c55e;
-  box-shadow:0 0 8px #22c55e}
+.hd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hd-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0}
+.hd h1{font-size:17px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hd .sub{font-size:10px;color:var(--muted)}
 .hd-actions{margin-inline-start:auto;display:flex;gap:6px}
-.hd-actions button{width:38px;height:38px;border-radius:12px;border:none;
-  background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px;
-  transition:background .2s;display:grid;place-items:center}
-.hd-actions button:hover{background:rgba(255,255,255,.14)}
-#ch{flex:1;overflow-y:auto;padding:20px 14px 200px;display:flex;
-  flex-direction:column;gap:14px;scroll-behavior:smooth}
-#ch::-webkit-scrollbar{width:6px}
-#ch::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
-.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
-.welcome .lg{width:90px;height:90px;border-radius:26px;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;
-  font-size:42px;font-weight:900;color:#fff;
-  box-shadow:0 20px 50px rgba(139,92,246,.5);animation:float 3.5s ease-in-out infinite}
-.welcome h2{font-size:24px;font-weight:900;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
+.hd-actions button{width:38px;height:38px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px}
+#ch{flex:1;overflow-y:auto;padding:20px 14px 200px;display:flex;flex-direction:column;gap:14px}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
+.welcome .lg{width:90px;height:90px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:42px;font-weight:900;color:#fff;animation:float 3.5s ease-in-out infinite}
+.welcome h2{font-size:24px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .welcome p{color:var(--muted);font-size:14px;max-width:320px;line-height:1.8}
 .quick-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px}
-.quick-chips button{padding:9px 16px;border-radius:14px;border:1px solid var(--border);
-  background:var(--card);color:var(--text);font-family:inherit;font-size:13px;
-  font-weight:600;cursor:pointer;transition:all .2s}
-.quick-chips button:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px)}
-.mw{display:flex;max-width:92%;animation:msgIn .35s cubic-bezier(.16,1,.3,1)}
+.quick-chips button{padding:9px 16px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.mw{display:flex;max-width:92%;animation:msgIn .35s}
 @keyframes msgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .mw.u{align-self:flex-start}
 .mw.b{align-self:flex-end}
-.msg-wrap{position:relative;display:flex;flex-direction:column;gap:4px}
-.m{padding:14px 18px;border-radius:20px;line-height:1.85;white-space:pre-wrap;
-  word-wrap:break-word;font-size:15px;position:relative}
-.u .m{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
-  border-bottom-right-radius:6px;box-shadow:0 8px 26px rgba(139,92,246,.35)}
-.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);
-  border-bottom-left-radius:6px;backdrop-filter:blur(12px)}
-.b .m strong{color:var(--primary);font-weight:800}
-.b .m pre{background:#000;color:#e8e8f0;padding:14px;border-radius:14px;
-  overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px;
-  font-family:'Courier New',monospace;border:1px solid rgba(255,255,255,.1)}
-.b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;
-  font-family:'Courier New',monospace;font-size:.9em;direction:ltr;display:inline-block}
-.b .m pre code{background:transparent;padding:0;color:inherit;display:block}
-.b .m a{color:var(--accent);text-decoration:underline}
-.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;padding-inline-start:6px}
-.msg-wrap:hover .msg-actions{opacity:1}
-.msg-actions button{background:var(--card);border:1px solid var(--border);
-  color:var(--muted);padding:4px 10px;border-radius:8px;font-size:11px;
-  font-family:inherit;cursor:pointer;transition:all .2s}
-.msg-actions button:hover{color:var(--primary);border-color:var(--primary)}
+.m{padding:14px 18px;border-radius:20px;line-height:1.85;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
+.u .m{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-bottom-right-radius:6px}
+.b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:6px}
+.b .m pre{background:#000;color:#e8e8f0;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px}
+.b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;font-family:monospace}
 .tp{display:flex;gap:5px;padding:14px 18px}
 .tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.15s}
 .tp span:nth-child(3){animation-delay:.3s}
 @keyframes bnc{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-6px);opacity:1}}
-.input-area{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 16px;
-  background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:40}
-.modes{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
-.modes::-webkit-scrollbar{display:none}
-.modes button{background:var(--card);border:1px solid var(--border);color:var(--muted);
-  padding:8px 14px;border-radius:12px;font-size:12px;font-family:inherit;
-  font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
-.modes button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
-  border-color:transparent;box-shadow:0 4px 18px rgba(139,92,246,.35);transform:translateY(-2px)}
-.input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card);
-  border:1px solid var(--border);border-radius:22px;padding:8px;
-  backdrop-filter:blur(16px);box-shadow:0 12px 40px rgba(0,0,0,.2);transition:border-color .2s}
-.input-box:focus-within{border-color:var(--primary);box-shadow:0 12px 40px rgba(139,92,246,.25)}
-#i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);
-  padding:10px 14px;font-family:inherit;font-size:15px;max-height:140px;line-height:1.5}
-#i::placeholder{color:var(--muted)}
-.btn-mic,#s{width:44px;height:44px;border:none;border-radius:14px;color:#fff;
-  font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:transform .15s,opacity .2s}
-.btn-mic{background:rgba(255,255,255,.08);color:var(--text)}
-.btn-mic.rec{background:#dc2626;animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
-#s{background:linear-gradient(135deg,#8b5cf6,#ec4899);box-shadow:0 6px 22px rgba(139,92,246,.45)}
-#s:active:not(:disabled){transform:scale(.94)}
-#s:disabled{opacity:.4;cursor:not-allowed}
-@media(max-width:600px){
-  .welcome .lg{width:80px;height:80px;font-size:36px}
-  .welcome h2{font-size:22px}.m{font-size:14px;padding:12px 15px}.brand-title{font-size:32px}
-}
+.input-area{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 16px;background:linear-gradient(to top,var(--bg) 60%,transparent);z-index:40}
+.modes{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px}
+.modes button{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:12px;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.modes button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-color:transparent}
+.input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:8px}
+#i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:10px 14px;font-family:inherit;font-size:15px;max-height:140px}
+#s{width:44px;height:44px;border:none;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
+#s:disabled{opacity:.4}
 </style>
 </head>
 <body>
@@ -622,24 +524,22 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
   <div class="brand-sub">من تطوير محمد كامل</div>
 
   <div class="tabs">
-    <button id="tabLogin" class="on" onclick="showTab('login')">🔑 دخول</button>
-    <button id="tabReg" onclick="showTab('reg')">✨ حساب جديد</button>
+    <button id="tabLogin" class="on" onclick="showTab('login')">دخول</button>
+    <button id="tabReg" onclick="showTab('reg')">حساب جديد</button>
   </div>
 
-  <!-- نموذج الدخول -->
   <div class="login-form" id="formLogin">
     <input id="lu" placeholder="اسم المستخدم" autocomplete="username">
     <input id="lp" type="password" placeholder="كلمة السر" autocomplete="current-password">
-    <button class="submit" id="loginBtn" onclick="doLogin()">🚀 دخول</button>
+    <button class="submit" id="loginBtn" onclick="doLogin()">دخول</button>
   </div>
 
-  <!-- نموذج التسجيل -->
   <div class="login-form" id="formReg" style="display:none">
-    <input id="ru" placeholder="اسم المستخدم (بالإنجليزية)" autocomplete="username">
+    <input id="ru" placeholder="اسم المستخدم (انجليزي)" autocomplete="username">
     <input id="rn" placeholder="الاسم الكامل (اختياري)">
-    <input id="rp" type="password" placeholder="كلمة السر (6 أحرف على الأقل)" autocomplete="new-password">
+    <input id="rp" type="password" placeholder="كلمة السر (6 احرف)" autocomplete="new-password">
     <input id="rp2" type="password" placeholder="تأكيد كلمة السر" autocomplete="new-password">
-    <button class="submit" id="regBtn" onclick="doRegister()">✨ إنشاء الحساب</button>
+    <button class="submit" id="regBtn" onclick="doRegister()">انشاء الحساب</button>
   </div>
 
   <div class="err" id="err"></div>
@@ -653,8 +553,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
       <div class="sub" id="userInfo">من تطوير محمد كامل</div>
     </div>
     <div class="hd-actions">
-      <button onclick="toggleTheme()" id="themeBtn" title="المظهر">🌙</button>
-      <button onclick="openSidebar()" title="القائمة">☰</button>
+      <button onclick="openSidebar()">&#9776;</button>
     </div>
   </div>
 
@@ -662,19 +561,18 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 
   <div class="input-area">
     <div class="modes">
-      <button class="on" data-m="general" onclick="sw('general')">💬 عامة</button>
-      <button data-m="math" onclick="sw('math')">📐 رياضيات</button>
-      <button data-m="code" onclick="sw('code')">💻 برمجة</button>
-      <button data-m="religion" onclick="sw('religion')">🕌 دين</button>
-      <button data-m="translate" onclick="sw('translate')">🌍 ترجمة</button>
-      <button data-m="summary" onclick="sw('summary')">📝 ملخص</button>
-      <button data-m="creative" onclick="sw('creative')">✨ إبداع</button>
-      <button data-m="science" onclick="sw('science')">🔬 علوم</button>
+      <button class="on" data-m="general" onclick="sw('general')">عامة</button>
+      <button data-m="math" onclick="sw('math')">رياضيات</button>
+      <button data-m="code" onclick="sw('code')">برمجة</button>
+      <button data-m="religion" onclick="sw('religion')">دين</button>
+      <button data-m="translate" onclick="sw('translate')">ترجمة</button>
+      <button data-m="summary" onclick="sw('summary')">ملخص</button>
+      <button data-m="creative" onclick="sw('creative')">ابداع</button>
+      <button data-m="science" onclick="sw('science')">علوم</button>
     </div>
     <div class="input-box">
-      <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="إدخال صوتي">🎤</button>
-      <textarea id="i" rows="1" placeholder="اكتب رسالتك…"></textarea>
-      <button id="s" onclick="send()">➤</button>
+      <textarea id="i" rows="1" placeholder="اكتب رسالتك..."></textarea>
+      <button id="s" onclick="send()">&#10148;</button>
     </div>
   </div>
 </div>
@@ -682,8 +580,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 <script>
 let mode="general",history=[],isAdmin=false,isSending=false,userName="";
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
-      s=document.getElementById("s"),micBtn=document.getElementById("micBtn"),
-      errEl=document.getElementById("err");
+      s=document.getElementById("s"),errEl=document.getElementById("err");
 
 function showTab(t){
   const isL=t==="login";
@@ -698,7 +595,7 @@ function setErr(t){errEl.textContent=t;setTimeout(()=>errEl.textContent="",4000)
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
   let h=esc(t);
-  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>`<pre><code>${c}</code></pre>`);
+  h=h.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,l,c){return "<pre><code>"+c+"</code></pre>"});
   h=h.replace(/`([^`]+)`/g,"<code>$1</code>");
   h=h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
   h=h.replace(/\n/g,"<br>");
@@ -706,34 +603,23 @@ function md(t){
 }
 function addMsg(text,who){
   const w=document.createElement("div");w.className="mw "+who;
-  const wrap=document.createElement("div");wrap.className="msg-wrap";
   const m=document.createElement("div");m.className="m";
   m.innerHTML=who==="b"?md(text):esc(text);
-  wrap.appendChild(m);
-  if(who==="b"){
-    const a=document.createElement("div");a.className="msg-actions";
-    const b=document.createElement("button");b.textContent="📋 نسخ";
-    b.onclick=()=>navigator.clipboard.writeText(text).then(()=>{
-      b.textContent="✅ تم";setTimeout(()=>b.textContent="📋 نسخ",1500);
-    });
-    a.appendChild(b);wrap.appendChild(a);
-  }
-  w.appendChild(wrap);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
+  w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
 }
 function typ(){
   const w=document.createElement("div");w.className="mw b";w.id="tp";
-  w.innerHTML='<div class="msg-wrap"><div class="m tp"><span></span><span></span><span></span></div></div>';
+  w.innerHTML='<div class="m tp"><span></span><span></span><span></span></div>';
   ch.appendChild(w);ch.scrollTop=ch.scrollHeight;return w;
 }
 function welcome(){
   ch.innerHTML='<div class="welcome"><div class="lg">M</div>'+
-    '<h2>مرحبًا '+(userName||"بك")+' 👋</h2>'+
-    '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطًا وابدأ.</p>'+
+    '<h2>مرحبا '+(userName||"بك")+'</h2>'+
+    '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطا وابدأ.</p>'+
     '<div class="quick-chips">'+
-    '<button onclick="quick(\'اشرح الثقوب السوداء\')">🌌 الثقوب السوداء</button>'+
-    '<button onclick="quick(\'اكتب كود Python للفرز\')">💻 كود Python</button>'+
-    '<button onclick="quick(\'ما هي عاصمة اليابان؟\')">🌏 جغرافيا</button>'+
-    '<button onclick="quick(\'لخص تاريخ الجزائر\')">📜 تاريخ</button>'+
+    '<button onclick="quick(\'اشرح الثقوب السوداء\')">الثقوب السوداء</button>'+
+    '<button onclick="quick(\'اكتب كود Python للفرز\')">كود Python</button>'+
+    '<button onclick="quick(\'ما هي عاصمة اليابان\')">جغرافيا</button>'+
     '</div></div>';
 }
 function quick(t){i.value=t;send()}
@@ -743,14 +629,14 @@ async function doLogin(){
   const p=document.getElementById("lp").value;
   if(!u||!p){setErr("املأ الحقول");return}
   const btn=document.getElementById("loginBtn");
-  btn.disabled=true;btn.textContent="⏳...";
+  btn.disabled=true;btn.textContent="...";
   try{
     const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
-    if(!d.ok){setErr("❌ "+d.msg);btn.disabled=false;btn.textContent="🚀 دخول";return}
+    if(!d.ok){setErr(d.msg);btn.disabled=false;btn.textContent="دخول";return}
     enterApp(d.name,d.role);
-  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="🚀 دخول"}
+  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="دخول"}
 }
 
 async function doRegister(){
@@ -758,25 +644,25 @@ async function doRegister(){
   const n=document.getElementById("rn").value.trim();
   const p=document.getElementById("rp").value;
   const p2=document.getElementById("rp2").value;
-  if(!u||!p){setErr("املأ الحقول الإلزامية");return}
+  if(!u||!p){setErr("املأ الحقول");return}
   if(p!==p2){setErr("كلمتا السر غير متطابقتين");return}
-  if(p.length<6){setErr("كلمة السر 6 أحرف على الأقل");return}
+  if(p.length<6){setErr("كلمة السر 6 احرف على الاقل");return}
   const btn=document.getElementById("regBtn");
-  btn.disabled=true;btn.textContent="⏳...";
+  btn.disabled=true;btn.textContent="...";
   try{
     const r=await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({username:u,password:p,name:n})});
     const d=await r.json();
-    if(!d.ok){setErr("❌ "+d.msg);btn.disabled=false;btn.textContent="✨ إنشاء الحساب";return}
+    if(!d.ok){setErr(d.msg);btn.disabled=false;btn.textContent="انشاء الحساب";return}
     enterApp(d.name,d.role);
-  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="✨ إنشاء الحساب"}
+  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="انشاء الحساب"}
 }
 
 function enterApp(name,role){
   userName=name;isAdmin=role==="admin";
   document.getElementById("login").style.display="none";
   document.getElementById("app").classList.add("on");
-  document.getElementById("userInfo").textContent="مرحبًا "+name+(isAdmin?" 👑":"")+" — من تطوير محمد كامل";
+  document.getElementById("userInfo").textContent="مرحبا "+name+(isAdmin?" (مدير)":"");
   welcome();i.focus();
 }
 
@@ -791,63 +677,42 @@ async function send(){
     const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:t,mode:mode,history:history.slice(0,-1)})});
     const d=await r.json();tp.remove();
-    const reply=d.reply||"⚠️ لا يوجد رد.";
+    const reply=d.reply||"لا يوجد رد.";
     addMsg(reply,"b");history.push({role:"assistant",content:reply});
-  }catch(e){tp.remove();addMsg("⚠️ تعذر الاتصال","b")}
+  }catch(e){tp.remove();addMsg("تعذر الاتصال","b")}
   finally{isSending=false;s.disabled=false;i.focus()}
 }
-function sw(m){mode=m;document.querySelectorAll(".modes button").forEach(b=>
-  b.classList.toggle("on",b.dataset.m===m))}
-function toggleTheme(){
-  const cur=document.documentElement.getAttribute("data-theme");
-  const nxt=cur==="light"?"dark":"light";
-  document.documentElement.setAttribute("data-theme",nxt);
-  document.getElementById("themeBtn").textContent=nxt==="light"?"☀️":"🌙";
-  localStorage.setItem("theme",nxt);
-}
-(function(){const sv=localStorage.getItem("theme")||"dark";
-  document.documentElement.setAttribute("data-theme",sv);
-  const b=document.getElementById("themeBtn");if(b)b.textContent=sv==="light"?"☀️":"🌙"})();
-let recognition=null;
-function toggleMic(){
-  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
-    alert("المتصفح لا يدعم الصوت");return}
-  if(recognition){recognition.stop();return}
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  recognition=new SR();recognition.lang="ar-SA";
-  recognition.onstart=()=>micBtn.classList.add("rec");
-  recognition.onend=()=>{micBtn.classList.remove("rec");recognition=null};
-  recognition.onerror=()=>{micBtn.classList.remove("rec");recognition=null};
-  recognition.onresult=e=>{i.value+=(i.value?" ":"")+e.results[0][0].transcript;i.focus()};
-  recognition.start();
-}
+function sw(m){mode=m;document.querySelectorAll(".modes button").forEach(function(b){
+  b.classList.toggle("on",b.dataset.m===m)})}
+
 function openSidebar(){
   const a=["مسح المحادثة"];
-  if(isAdmin)a.push("لوحة الإدارة 👑");
+  if(isAdmin)a.push("لوحة الإدارة");
   a.push("تصدير المحادثة","تسجيل الخروج");
-  const c=prompt("اختر رقمًا:\n"+a.map((x,n)=>`${n+1}. ${x}`).join("\n"));
+  const c=prompt("اختر رقما:\n"+a.map(function(x,n){return (n+1)+". "+x}).join("\n"));
   const idx=parseInt(c)-1,ch2=a[idx];
   if(!ch2)return;
-  if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}
-  else if(ch2.indexOf("لوحة الإدارة")>=0){window.open("/admin","_blank")}
+  if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}}
+  else if(ch2==="لوحة الإدارة"){window.open("/admin?key="+prompt("أدخل مفتاح اللوحة:")||"","_blank")}
   else if(ch2==="تصدير المحادثة"){
-    const txt=history.map(m=>`[${m.role==="user"?"أنا":"Moka"}] ${m.content}`).join("\n\n");
+    const txt=history.map(function(m){return "["+(m.role==="user"?"أنا":"Moka")+"] "+m.content}).join("\n\n");
     const bl=new Blob([txt],{type:"text/plain;charset=utf-8"});
     const a2=document.createElement("a");a2.href=URL.createObjectURL(bl);
-    a2.download=`moka-chat-${Date.now()}.txt`;a2.click();
-  } else if(ch2==="تسجيل الخروج"){if(confirm("خروج؟"))fetch("/api/logout",{method:"POST"}).then(()=>location.reload())}
+    a2.download="moka-chat-"+Date.now()+".txt";a2.click();
+  } else if(ch2==="تسجيل الخروج"){if(confirm("خروج؟"))fetch("/api/logout",{method:"POST"}).then(function(){location.reload()})}
 }
-i.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
-i.addEventListener("input",()=>{i.style.height="auto";i.style.height=Math.min(i.scrollHeight,140)+"px"});
-document.getElementById("lp").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
-document.getElementById("rp2").addEventListener("keydown",e=>{if(e.key==="Enter")doRegister()});
+
+i.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
+i.addEventListener("input",function(){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,140)+"px"});
+document.getElementById("lp").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
+document.getElementById("rp2").addEventListener("keydown",function(e){if(e.key==="Enter")doRegister()});
 </script>
 </body>
 </html>'''
 
 
 # ============================================================
-#  👑 HTML — لوحة الإدارة
+#  لوحة الإدارة
 # ============================================================
 
 HTML_ADMIN = r'''<!DOCTYPE html>
@@ -855,91 +720,85 @@ HTML_ADMIN = r'''<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>لوحة الإدارة — Moka AI</title>
+<title>لوحة الإدارة</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
 body{font-family:Cairo;background:#0a0a12;color:#e8e8f0;padding:22px;min-height:100vh}
-h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
 .sub{color:#8b8ba8;font-size:13px;margin-bottom:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
 .card{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
-.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
-  -webkit-background-clip:text;background-clip:text;color:transparent}
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lbl{font-size:12px;color:#8b8ba8;margin-top:6px}
-.box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);
-  border-radius:18px;padding:18px;margin-bottom:16px}
+.box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
 .box h2{font-size:16px;font-weight:800;margin-bottom:12px}
-.row{display:flex;justify-content:space-between;padding:10px 0;
-  border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
-.row:last-child{border-bottom:none}.row .meta{color:#8b8ba8;font-size:12px}
-.badge{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
-  padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
+.row:last-child{border-bottom:none}
+.row .meta{color:#8b8ba8;font-size:12px}
+.badge{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
 .badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
 .msg-item{padding:10px;background:rgba(0,0,0,.2);border-radius:12px;margin-bottom:6px;font-size:13px}
 .msg-item .meta{display:flex;justify-content:space-between;color:#8b8ba8;font-size:11px;margin-bottom:4px}
 a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
-a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
-  font-size:11px;text-decoration:none;font-weight:800}
 </style>
 </head>
 <body>
-<a href="/" class="back">← رجوع</a>
-<h1>لوحة الإدارة — Moka AI</h1>
-<div class="sub">من تطوير محمد كامل · آخر تحديث: {{ stats.updated_at or "—" }}</div>
+<a href="/" class="back">رجوع</a>
+<h1>لوحة الإدارة</h1>
+<div class="sub">من تطوير محمد كامل</div>
 
 <div class="grid">
-  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">👁️ زيارات</div></div>
-  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">🔑 تسجيلات دخول</div></div>
-  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">✨ حسابات جديدة</div></div>
-  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">💬 رسائل</div></div>
-  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">👥 مستخدمين</div></div>
+  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات دخول</div></div>
+  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات جديدة</div></div>
+  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
 </div>
 
 <div class="box">
-  <h2>📊 استخدام الأنماط</h2>
+  <h2>استخدام الأنماط</h2>
   {% for k, v in stats.modes.items() %}
   <div class="row"><span>{{ k }}</span><b>{{ v }}</b></div>
   {% endfor %}
 </div>
 
 <div class="box">
-  <h2>👥 المستخدمون</h2>
+  <h2>المستخدمون</h2>
   {% for u, info in users.items() %}
   <div class="row">
-    <span>👤 <b>{{ info.name }}</b> <span class="meta">({{ u }})</span></span>
+    <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
     <span class="badge {{ 'user' if info.role != 'admin' else '' }}">{{ info.role }}</span>
   </div>
   {% endfor %}
 </div>
 
 <div class="box">
-  <h2>🔐 تسجيلات دخول حديثة</h2>
+  <h2>تسجيلات حديثة</h2>
   {% for r in stats.recent[-15:]|reverse %}
-  <div class="row"><span>👤 {{ r.name }}</span>
-    <span class="meta">{{ r.ip }} · {{ r.time }}</span></div>
+  <div class="row"><span>{{ r.name }}</span>
+    <span class="meta">{{ r.ip }} - {{ r.time }}</span></div>
   {% endfor %}
 </div>
 
 <div class="box">
-  <h2>💬 آخر 20 رسالة</h2>
+  <h2>آخر 20 رسالة</h2>
   {% for m in stats.messages_log[-20:]|reverse %}
   <div class="msg-item">
-    <div class="meta"><span>{{ m.user }} · {{ m.mode }}</span><span>{{ m.time }}</span></div>
+    <div class="meta"><span>{{ m.user }} - {{ m.mode }}</span><span>{{ m.time }}</span></div>
     <div>{{ m.text }}</div>
   </div>
   {% endfor %}
 </div>
 
 <div class="box">
-  <h2>🚫 عناوين IP محظورة</h2>
+  <h2>IP محظورة</h2>
   {% if blocked %}
     {% for ip in blocked %}
-    <div class="row"><span>🌐 {{ ip }}</span>
-      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">إلغاء الحظر</a></div>
+    <div class="row"><span>{{ ip }}</span>
+      <a href="/admin/unblock/{{ ip }}?key={{ key }}" style="color:#22c55e;font-weight:800;font-size:11px">الغاء الحظر</a></div>
     {% endfor %}
   {% else %}
-    <div class="row"><span class="meta">لا يوجد أحد محظور</span></div>
+    <div class="row"><span class="meta">لا يوجد</span></div>
   {% endif %}
 </div>
 </body>
@@ -947,13 +806,13 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
 
 
 # ============================================================
-#  🚀 التشغيل
+#  التشغيل
 # ============================================================
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Moka AI v22.0 يعمل على http://0.0.0.0:{port}")
-    print(f"   المطوّر: محمد كامل")
-    print(f"   المدير: {ADMIN_USERNAME}")
-    print(f"   المزودون: {[p['name'] for p in PROVIDERS if p['key']]}")
+    print(f"Moka AI v23.0 يعمل على http://0.0.0.0:{port}")
+    print(f"المطور: محمد كامل")
+    print(f"المدير: {ADMIN_USERNAME}")
+    print(f"المزودون: {[p['name'] for p in PROVIDERS if p['key']]}")
     app.run(host="0.0.0.0", port=port, debug=False)
