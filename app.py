@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v23.0 — نسخة نهائية مستقرة
-#  المطوّر: محمد كامل
+#  Moka AI v24.0 - نسخة مستقرة
+#  المطور: محمد كامل
 # ============================================================
 
-import os, re, json, time, hashlib, secrets
+import os, re, json, time, hashlib, secrets, traceback
 import urllib.parse, urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 from functools import wraps
@@ -22,30 +22,24 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
-# ============================================================
-#  👑 حساب المدير (كلمات سر بدون رموز معقدة)
-# ============================================================
+# ============ المدير ============
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "kameladmin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "KamelDz2026Prime")
 ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "mokaadmin2026")
 SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 
-# ============================================================
-#  🤖 مفاتيح API
-# ============================================================
+# ============ Groq API ============
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
-PROVIDERS = [
-    {"name": "groq",
-     "url": "https://api.groq.com/openai/v1/chat/completions",
-     "key": GROQ_API_KEY,
-     "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant",
-                "mixtral-8x7b-32768", "gemma2-9b-it"]},
+# ✅ نماذج Groq الحالية فقط (2026)
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
 ]
 
-# ============================================================
-#  📁 ملفات التخزين
-# ============================================================
+# ============ الملفات ============
 DATA_DIR     = os.path.dirname(os.path.abspath(__file__))
 USERS_FILE   = os.path.join(DATA_DIR, "users.json")
 STATS_FILE   = os.path.join(DATA_DIR, "stats.json")
@@ -55,9 +49,7 @@ BLOCKED_IPS = set()
 RATE_LIMITS = defaultdict(list)
 SESSIONS    = {}
 
-# ============================================================
-#  💾 دوال التخزين
-# ============================================================
+# ============ دوال التخزين ============
 def load_json(path, default):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -75,9 +67,7 @@ def save_json(path, data):
 def hash_pw(pw):
     return hashlib.sha256((pw + SECRET_SALT).encode("utf-8")).hexdigest()
 
-# ============================================================
-#  👥 المستخدمون
-# ============================================================
+# ============ المستخدمون ============
 USERS = load_json(USERS_FILE, {})
 
 if ADMIN_USERNAME not in USERS:
@@ -89,13 +79,11 @@ if ADMIN_USERNAME not in USERS:
     }
     save_json(USERS_FILE, USERS)
 
-# ============================================================
-#  📊 الإحصائيات
-# ============================================================
+# ============ الإحصائيات ============
 DEFAULT_STATS = {
     "visitors": 0, "logins": 0, "registrations": 0, "messages": 0,
-    "modes": {m: 0 for m in ["general", "math", "code", "religion",
-                              "translate", "summary", "creative", "science"]},
+    "modes": {m: 0 for m in ["general","math","code","religion",
+                              "translate","summary","creative","science"]},
     "recent": [], "messages_log": [],
     "started_at": datetime.now().isoformat(),
 }
@@ -109,9 +97,7 @@ def save_blocked(): save_json(BLOCKED_FILE, list(BLOCKED_IPS))
 
 BLOCKED_IPS = set(load_json(BLOCKED_FILE, []))
 
-# ============================================================
-#  🛠️ دوال مساعدة
-# ============================================================
+# ============ دوال مساعدة ============
 def get_ip():
     return (request.headers.get("X-Forwarded-For", request.remote_addr or "?")
             .split(",")[0].strip())
@@ -125,7 +111,7 @@ def alg_date_context():
               "جويلية","أوت","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     days = ["الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت","الأحد"]
     return (f"اليوم: {days[d.weekday()]} {d.day} {months[d.month-1]} "
-            f"{d.year} - {d.strftime('%H:%M')} بتوقيت الجزائر")
+            f"{d.year} - {d.strftime('%H:%M')} (GMT+1)")
 
 def rate_limit(max_calls=20, window=60):
     def deco(fn):
@@ -135,7 +121,7 @@ def rate_limit(max_calls=20, window=60):
             now = time.time()
             RATE_LIMITS[ip] = [t for t in RATE_LIMITS[ip] if now - t < window]
             if len(RATE_LIMITS[ip]) >= max_calls:
-                return jsonify({"reply": "أرسلت رسائل كثيرة. انتظر."}), 429
+                return jsonify({"reply": "ارسلت رسائل كثيرة. انتظر."}), 429
             RATE_LIMITS[ip].append(now)
             return fn(*a, **kw)
         return wrapper
@@ -159,14 +145,12 @@ def admin_required(fn):
         return fn(*a, **kw)
     return wrapper
 
-# ============================================================
-#  🔍 بحث ويكيبيديا
-# ============================================================
+# ============ بحث ويكيبيديا ============
 def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/23.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/24.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -174,19 +158,17 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/23.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/24.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
-        return f"معلومات: {title}\n{extract[:800]}" if extract else None
+        return f"معلومات من ويكيبيديا ({title}):\n{extract[:700]}" if extract else None
     except Exception:
         return None
 
-# ============================================================
-#  🧠 رسائل النظام
-# ============================================================
+# ============ رسائل النظام ============
 OWNER_INFO = """
-معلومات المطوّر:
+معلومات المطور:
 - الاسم: محمد كامل
 - العمر: 15 سنة
 - الجنسية: جزائري
@@ -196,14 +178,14 @@ OWNER_INFO = """
 RULES = """
 قواعد الهوية - إلزامية:
 1. إذا سئلت "من صنعك؟" اجب: "طورني محمد كامل."
-2. ممنوع ذكر أي شركة تقنية أو أسماء نماذج اخرى.
+2. ممنوع ذكر اي شركة تقنية او اسماء نماذج اخرى.
 3. اسمك Moka AI.
-4. ممنوع تماما الرد على أي سؤال جنسي أو اباحي أو عنيف.
-   - إذا سئلت عن هذا، اعتذر: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
-5. رفض أي طلب لكتابة محتوى ضار.
+4. ممنوع تماما الرد على اي سؤال جنسي او اباحي او عنيف.
+   اعتذر: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
+5. رفض المحتوى الضار او الكراهية.
 
 اللغة: اجب بنفس لغة السؤال.
-التنسيق: ممنوع LaTeX و ###.
+التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم. للكود ```.
 الشخصية: ذكي، مختصر، ودود، محترم.
 """
 
@@ -226,52 +208,77 @@ def clean_reply(text):
     text = text.replace("\\(", "").replace("\\)", "")
     text = text.replace("\\[", "").replace("\\]", "")
     text = text.replace("\\sqrt", "√").replace("\\frac", "")
+    text = text.replace("\\text", "").replace("\\displaystyle", "")
     return text.strip()
 
+# ============ استدعاء AI (مع تسجيل مفصل) ============
 def call_ai(messages, mode="general", max_tokens=1500):
+    if not GROQ_API_KEY:
+        print("[AI] ERROR: GROQ_API_KEY فارغ!")
+        return "⚠️ مفتاح API غير مضبوط. أضف GROQ_API_KEY في Environment."
+
     system = build_system(mode)
     full = [{"role": "system", "content": system}] + messages[-20:]
-    last_err = ""
-    for provider in PROVIDERS:
-        if not provider["key"]: continue
-        for model in provider["models"]:
-            try:
-                payload = json.dumps({
-                    "model": model, "messages": full,
-                    "temperature": 0.7, "max_tokens": max_tokens,
-                }).encode("utf-8")
-                req = urllib.request.Request(
-                    provider["url"], data=payload,
-                    headers={"Authorization": f"Bearer {provider['key']}",
-                             "Content-Type": "application/json",
-                             "User-Agent": "MokaAI/23.0"},
-                    method="POST")
-                with urllib.request.urlopen(req, timeout=45) as r:
-                    data = json.loads(r.read().decode("utf-8"))
-                reply = data["choices"][0]["message"]["content"].strip()
-                if reply:
-                    print(f"[AI] OK {provider['name']} {model}")
-                    return clean_reply(reply)
-            except urllib.error.HTTPError as e:
-                last_err = f"HTTP {e.code}"
-                print(f"[AI] FAIL {provider['name']}/{model}: {last_err}")
-                continue
-            except Exception as e:
-                last_err = str(e)[:80]
-                print(f"[AI] FAIL {provider['name']}/{model}: {e}")
-                continue
-    return f"تعذر الاتصال. ({last_err})"
 
-# ============================================================
-#  Routes
-# ============================================================
+    last_error = ""
+    for model in GROQ_MODELS:
+        try:
+            payload = json.dumps({
+                "model": model,
+                "messages": full,
+                "temperature": 0.7,
+                "max_tokens": max_tokens,
+            }).encode("utf-8")
+
+            req = urllib.request.Request(
+                GROQ_URL,
+                data=payload,
+                headers={
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json",
+                    "User-Agent": "MokaAI/24.0",
+                },
+                method="POST"
+            )
+
+            with urllib.request.urlopen(req, timeout=60) as r:
+                data = json.loads(r.read().decode("utf-8"))
+
+            reply = data["choices"][0]["message"]["content"].strip()
+            if reply:
+                print(f"[AI] OK | model={model} | len={len(reply)}")
+                return clean_reply(reply)
+
+        except urllib.error.HTTPError as e:
+            err_body = ""
+            try:
+                err_body = e.read().decode("utf-8")[:400]
+            except Exception:
+                pass
+            last_error = f"HTTP {e.code}: {err_body}"
+            print(f"[AI] FAIL | {model} | {last_error}")
+            continue
+
+        except urllib.error.URLError as e:
+            last_error = f"URLError: {str(e)[:200]}"
+            print(f"[AI] FAIL | {model} | {last_error}")
+            continue
+
+        except Exception as e:
+            last_error = f"{type(e).__name__}: {str(e)[:200]}"
+            print(f"[AI] FAIL | {model} | {last_error}")
+            continue
+
+    return f"⚠️ تعذر الاتصال. ({last_error[:200]})"
+
+# ============ Routes ============
 
 @app.route("/")
 def index():
     STATS["visitors"] = STATS.get("visitors", 0) + 1
     save_stats()
     if get_ip() in BLOCKED_IPS:
-        return "تم حظر وصولك.", 403
+        return "🚫 تم حظر وصولك.", 403
     return render_template_string(HTML_APP)
 
 
@@ -293,7 +300,7 @@ def api_register():
     if u == ADMIN_USERNAME:
         return jsonify({"ok": False, "msg": "هذا الاسم محجوز"}), 403
     if u in USERS:
-        return jsonify({"ok": False, "msg": "الاسم موجود مسبقا"}), 409
+        return jsonify({"ok": False, "msg": "الاسم موجود مسبقًا"}), 409
 
     USERS[u] = {
         "password": hash_pw(p),
@@ -351,14 +358,6 @@ def api_logout():
     return jsonify({"ok": True})
 
 
-@app.route("/api/me")
-def api_me():
-    if not session.get("user"):
-        return jsonify({"ok": False}), 401
-    return jsonify({"ok": True, "name": session.get("name"),
-                    "role": session.get("role")})
-
-
 @app.route("/api/chat", methods=["POST"])
 @login_required
 @rate_limit(max_calls=20, window=60)
@@ -381,7 +380,7 @@ def api_chat():
     if any(k in msg for k in wiki_kw) and len(msg) > 8:
         w = search_wikipedia(msg)
         if w:
-            extra += f"\n\n[معلومات من ويكيبيديا]\n{w}"
+            extra += f"\n\n[معلومات إضافية]\n{w}"
     if extra:
         conv.insert(-1, {"role": "system", "content": extra.strip()})
     if len(conv) > 24:
@@ -440,9 +439,7 @@ def admin_unblock(ip):
 def health():
     return jsonify({"status": "ok", "time": now_algeria().isoformat()})
 
-# ============================================================
-#  الواجهة الرئيسية
-# ============================================================
+# ============ HTML الرئيسية ============
 
 HTML_APP = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -590,7 +587,7 @@ function showTab(t){
   document.getElementById("formReg").style.display=isL?"none":"flex";
   errEl.textContent="";
 }
-function setErr(t){errEl.textContent=t;setTimeout(()=>errEl.textContent="",4000)}
+function setErr(t){errEl.textContent=t;setTimeout(function(){errEl.textContent=""},4000)}
 
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
@@ -693,7 +690,7 @@ function openSidebar(){
   const idx=parseInt(c)-1,ch2=a[idx];
   if(!ch2)return;
   if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}}
-  else if(ch2==="لوحة الإدارة"){window.open("/admin?key="+prompt("أدخل مفتاح اللوحة:")||"","_blank")}
+  else if(ch2==="لوحة الإدارة"){const k=prompt("أدخل مفتاح اللوحة:");if(k)window.open("/admin?key="+k,"_blank")}
   else if(ch2==="تصدير المحادثة"){
     const txt=history.map(function(m){return "["+(m.role==="user"?"أنا":"Moka")+"] "+m.content}).join("\n\n");
     const bl=new Blob([txt],{type:"text/plain;charset=utf-8"});
@@ -711,9 +708,7 @@ document.getElementById("rp2").addEventListener("keydown",function(e){if(e.key==
 </html>'''
 
 
-# ============================================================
-#  لوحة الإدارة
-# ============================================================
+# ============ HTML لوحة الإدارة ============
 
 HTML_ADMIN = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -740,10 +735,11 @@ h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4
 .msg-item{padding:10px;background:rgba(0,0,0,.2);border-radius:12px;margin-bottom:6px;font-size:13px}
 .msg-item .meta{display:flex;justify-content:space-between;color:#8b8ba8;font-size:11px;margin-bottom:4px}
 a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
+a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
 </style>
 </head>
 <body>
-<a href="/" class="back">رجوع</a>
+<a href="/" class="back">← رجوع</a>
 <h1>لوحة الإدارة</h1>
 <div class="sub">من تطوير محمد كامل</div>
 
@@ -795,7 +791,7 @@ a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;m
   {% if blocked %}
     {% for ip in blocked %}
     <div class="row"><span>{{ ip }}</span>
-      <a href="/admin/unblock/{{ ip }}?key={{ key }}" style="color:#22c55e;font-weight:800;font-size:11px">الغاء الحظر</a></div>
+      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء الحظر</a></div>
     {% endfor %}
   {% else %}
     <div class="row"><span class="meta">لا يوجد</span></div>
@@ -805,14 +801,15 @@ a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;m
 </html>'''
 
 
-# ============================================================
-#  التشغيل
-# ============================================================
+# ============ التشغيل ============
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"Moka AI v23.0 يعمل على http://0.0.0.0:{port}")
+    print(f"=" * 50)
+    print(f"Moka AI v24.0")
     print(f"المطور: محمد كامل")
     print(f"المدير: {ADMIN_USERNAME}")
-    print(f"المزودون: {[p['name'] for p in PROVIDERS if p['key']]}")
+    print(f"Groq Key: {'موجود' if GROQ_API_KEY else 'مفقود!'}")
+    print(f"Port: {port}")
+    print(f"=" * 50)
     app.run(host="0.0.0.0", port=port, debug=False)
