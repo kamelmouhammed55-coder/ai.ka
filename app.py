@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v21.0 — نسخة آمنة
+#  Moka AI v22.0 — مع نظام تسجيل المستخدمين
 #  المطوّر: محمد كامل
 # ============================================================
 
@@ -11,7 +11,7 @@ from functools import wraps
 from collections import defaultdict
 
 from flask import (Flask, request, jsonify, render_template_string,
-                   session, redirect, url_for, Response)
+                   session, redirect, url_for)
 
 try:
     from dotenv import load_dotenv
@@ -23,19 +23,18 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 # ============================================================
-#  🔐 بيانات الإدارة — غيّرها عبر متغيرات البيئة في Render!
+#  👑 حساب المدير (محمد كامل) — خاص بك وحدك
 # ============================================================
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "km_2026_prime_kamel_dz")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "M0k@.AI#2026$Kamel!X9Secure")
-ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "moka_admin_hidden_2026_dz_#X9prime")
-SECRET_SALT    = os.environ.get("SECRET_SALT",    "moka_salt_2026_kamel_dz_#X9")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "km_kamel_admin_2026")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "Kamel@Dz#2026!Prime$X9")
+ADMIN_KEY      = os.environ.get("ADMIN_KEY",      "moka_admin_key_2026_dz_x9_secret")
+SECRET_SALT    = os.environ.get("SECRET_SALT",    "moka_salt_2026_kamel_x9_secure")
 
 # ============================================================
 #  🤖 مفاتيح API
 # ============================================================
 GROQ_API_KEY       = os.environ.get("GROQ_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
-TOGETHER_API_KEY   = os.environ.get("TOGETHER_API_KEY", "").strip()
 
 PROVIDERS = [
     {"name": "groq",
@@ -47,12 +46,7 @@ PROVIDERS = [
      "url": "https://openrouter.ai/api/v1/chat/completions",
      "key": OPENROUTER_API_KEY,
      "models": ["meta-llama/llama-3.3-70b-instruct:free",
-                "google/gemma-2-9b-it:free",
-                "qwen/qwen-2.5-72b-instruct:free"]},
-    {"name": "together",
-     "url": "https://api.together.xyz/v1/chat/completions",
-     "key": TOGETHER_API_KEY,
-     "models": ["meta-llama/Llama-3.3-70B-Instruct-Turbo"]},
+                "google/gemma-2-9b-it:free"]},
 ]
 
 # ============================================================
@@ -68,7 +62,7 @@ RATE_LIMITS = defaultdict(list)
 SESSIONS    = {}
 
 # ============================================================
-#  💾 دوال الملفات
+#  💾 دوال التخزين
 # ============================================================
 def load_json(path, default):
     try:
@@ -85,24 +79,20 @@ def save_json(path, data):
         print(f"[save_json] {e}")
 
 def hash_pw(pw):
-    """تشفير قوي مع Salt"""
-    salted = (pw + SECRET_SALT).encode("utf-8")
-    return hashlib.sha256(salted).hexdigest()
+    return hashlib.sha256((pw + SECRET_SALT).encode("utf-8")).hexdigest()
 
 # ============================================================
-#  👤 تحميل/إنشاء المستخدمين
+#  👥 المستخدمون
 # ============================================================
 USERS = load_json(USERS_FILE, {})
 
-# إذا لم يكن هناك users.json، أنشئ حساب المدير الوحيد
-if not USERS or ADMIN_USERNAME not in USERS:
-    USERS = {
-        ADMIN_USERNAME: {
-            "password": hash_pw(ADMIN_PASSWORD),
-            "name": "محمد كامل",
-            "role": "admin",
-            "created": datetime.now().isoformat(),
-        }
+# إنشاء حساب المدير تلقائيًا إذا لم يوجد
+if ADMIN_USERNAME not in USERS:
+    USERS[ADMIN_USERNAME] = {
+        "password": hash_pw(ADMIN_PASSWORD),
+        "name": "محمد كامل",
+        "role": "admin",
+        "created": datetime.now().isoformat(),
     }
     save_json(USERS_FILE, USERS)
 
@@ -110,13 +100,12 @@ if not USERS or ADMIN_USERNAME not in USERS:
 #  📊 الإحصائيات
 # ============================================================
 DEFAULT_STATS = {
-    "visitors": 0, "logins": 0, "messages": 0,
+    "visitors": 0, "logins": 0, "registrations": 0, "messages": 0,
     "modes": {m: 0 for m in ["general", "math", "code", "religion",
                               "translate", "summary", "creative", "science"]},
     "recent": [], "messages_log": [],
     "started_at": datetime.now().isoformat(),
 }
-
 STATS = {**DEFAULT_STATS, **load_json(STATS_FILE, {})}
 for m in DEFAULT_STATS["modes"]:
     STATS["modes"].setdefault(m, 0)
@@ -153,7 +142,7 @@ def rate_limit(max_calls=20, window=60):
             now = time.time()
             RATE_LIMITS[ip] = [t for t in RATE_LIMITS[ip] if now - t < window]
             if len(RATE_LIMITS[ip]) >= max_calls:
-                return jsonify({"reply": "⏳ أرسلت رسائل كثيرة. انتظر."}), 429
+                return jsonify({"reply": "⏳ أرسلت رسائل كثيرة."}), 429
             RATE_LIMITS[ip].append(now)
             return fn(*a, **kw)
         return wrapper
@@ -178,13 +167,13 @@ def admin_required(fn):
     return wrapper
 
 # ============================================================
-#  🔍 البحث في ويكيبيديا
+#  🔍 بحث ويكيبيديا
 # ============================================================
 def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/21.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/22.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -192,7 +181,7 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/21.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/22.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
@@ -207,7 +196,6 @@ OWNER_INFO = """
 【معلومات المطوّر】
 - الاسم: محمد كامل
 - العمر: 15 سنة
-- الميلاد: 16 أفريل 2011
 - الجنسية: جزائري
 - المشروع: Moka AI
 """
@@ -215,10 +203,12 @@ OWNER_INFO = """
 RULES = """
 【قواعد الهوية — إلزامية】
 1. إذا سُئلت "من صنعك؟" أجب: "طوّرني محمد كامل."
-2. ممنوع ذكر أي شركة تقنية (OpenAI, Google, Meta, Anthropic, DeepSeek).
-3. ممنوع ذكر أسماء نماذج (GPT, Gemini, Claude, Llama). قل: "تقنية Moka AI الداخلية".
-4. اسمك Moka AI.
-5. لا تتطرق أبدًا لمواضيع جنسية أو غير أخلاقية. اعتذر بلطف وأعد التوجيه.
+2. ممنوع ذكر أي شركة تقنية أو أسماء نماذج أخرى.
+3. اسمك Moka AI.
+4. ❌ ممنوع تمامًا الرد على أي سؤال جنسي أو إباحي أو عنيف.
+   - إذا سُئلت عن هذا، اعتذر بجملة قصيرة: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
+   - ثم اقترح موضوعًا آخر مفيدًا.
+5. رفض أي طلب لكتابة محتوى ضار أو كراهية.
 
 【اللغة】 أجب بنفس لغة السؤال.
 【التنسيق】 ممنوع LaTeX و ###. استخدم **غامق** و - للقوائم.
@@ -262,7 +252,7 @@ def call_ai(messages, mode="general", max_tokens=1500):
                     provider["url"], data=payload,
                     headers={"Authorization": f"Bearer {provider['key']}",
                              "Content-Type": "application/json",
-                             "User-Agent": "MokaAI/21.0"},
+                             "User-Agent": "MokaAI/22.0"},
                     method="POST")
                 with urllib.request.urlopen(req, timeout=45) as r:
                     data = json.loads(r.read().decode("utf-8"))
@@ -293,6 +283,55 @@ def index():
     return render_template_string(HTML_APP)
 
 
+# ---------- تسجيل مستخدم جديد ----------
+@app.route("/api/register", methods=["POST"])
+def api_register():
+    data = request.get_json(silent=True) or {}
+    u = data.get("username", "").strip()
+    p = data.get("password", "")
+    n = data.get("name", "").strip() or u
+
+    # تحقق من صحة البيانات
+    if not u or not p:
+        return jsonify({"ok": False, "msg": "أدخل اسم المستخدم وكلمة السر"}), 400
+    if len(u) < 3 or len(u) > 30:
+        return jsonify({"ok": False, "msg": "اسم المستخدم يجب أن يكون بين 3 و 30 حرفًا"}), 400
+    if len(p) < 6:
+        return jsonify({"ok": False, "msg": "كلمة السر يجب أن تكون 6 أحرف على الأقل"}), 400
+    if not re.match(r"^[a-zA-Z0-9_]+$", u):
+        return jsonify({"ok": False, "msg": "اسم المستخدم يقبل حروف وأرقام و _ فقط"}), 400
+
+    # منع استخدام اسم المدير
+    if u == ADMIN_USERNAME:
+        return jsonify({"ok": False, "msg": "هذا الاسم محجوز"}), 403
+
+    # هل الاسم موجود؟
+    if u in USERS:
+        return jsonify({"ok": False, "msg": "اسم المستخدم موجود مسبقًا"}), 409
+
+    # إنشاء الحساب
+    USERS[u] = {
+        "password": hash_pw(p),
+        "name": n[:40],
+        "role": "user",
+        "created": datetime.now().isoformat(),
+        "ip": get_ip()[:15],
+    }
+    save_users()
+
+    STATS["registrations"] = STATS.get("registrations", 0) + 1
+    save_stats()
+
+    # تسجيل دخول تلقائي
+    session["user"] = u
+    session["role"] = "user"
+    session["name"] = USERS[u]["name"]
+    session["sid"] = secrets.token_hex(8)
+
+    return jsonify({"ok": True, "name": USERS[u]["name"], "role": "user"})
+
+
+# ---------- تسجيل الدخول ----------
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
@@ -302,13 +341,16 @@ def api_login():
         return jsonify({"ok": False, "msg": "أدخل البيانات"}), 400
     if get_ip() in BLOCKED_IPS:
         return jsonify({"ok": False, "msg": "محظور"}), 403
+
     user = USERS.get(u)
     if not user or user["password"] != hash_pw(p):
         return jsonify({"ok": False, "msg": "بيانات خاطئة"}), 401
+
     session["user"] = u
     session["role"] = user["role"]
     session["name"] = user["name"]
     session["sid"] = secrets.token_hex(8)
+
     STATS["logins"] = STATS.get("logins", 0) + 1
     STATS.setdefault("recent", []).append({
         "name": user["name"], "ip": get_ip()[:15],
@@ -316,6 +358,7 @@ def api_login():
     })
     STATS["recent"] = STATS["recent"][-50:]
     save_stats()
+
     return jsonify({"ok": True, "name": user["name"], "role": user["role"]})
 
 
@@ -325,6 +368,15 @@ def api_logout():
     return jsonify({"ok": True})
 
 
+@app.route("/api/me")
+def api_me():
+    if not session.get("user"):
+        return jsonify({"ok": False}), 401
+    return jsonify({"ok": True, "name": session.get("name"),
+                    "role": session.get("role")})
+
+
+# ---------- المحادثة ----------
 @app.route("/api/chat", methods=["POST"])
 @login_required
 @rate_limit(max_calls=20, window=60)
@@ -337,10 +389,10 @@ def api_chat():
         return jsonify({"reply": "اكتب رسالة."}), 400
     if mode not in MODES:
         mode = "general"
+
     conv = SESSIONS.setdefault(sid, [])
     conv.append({"role": "user", "content": msg})
 
-    # بحث تلقائي
     extra = ""
     wiki_kw = ["ما هو", "ما هي", "من هو", "من هي", "تاريخ", "دولة",
                "عاصمة", "تعريف", "معلومات", "أين", "متى"]
@@ -376,22 +428,15 @@ def api_clear():
     return jsonify({"ok": True})
 
 
-# ============================================================
-#  👑 لوحة الإدارة — محمية بـ 3 طبقات
-# ============================================================
-
+# ---------- لوحة الإدارة ----------
 @app.route("/admin")
 def admin():
-    # ✅ الطبقة 1: يجب أن يكون مسجّلًا
     if not session.get("user"):
         return "🔒 يجب تسجيل الدخول أولًا", 403
-    # ✅ الطبقة 2: يجب أن يكون دوره admin
     if session.get("role") != "admin":
         return "🔒 وصول مرفوض — للمدير فقط", 403
-    # ✅ الطبقة 3: يجب أن يمرر المفتاح السري
     if request.args.get("key") != ADMIN_KEY:
-        return "🔒 مفتاح الإدارة مطلوب. أضف ?key=YOUR_KEY", 403
-
+        return "🔒 مفتاح الإدارة مطلوب", 403
     return render_template_string(HTML_ADMIN, stats=STATS, users=USERS,
                                   blocked=list(BLOCKED_IPS), key=ADMIN_KEY)
 
@@ -413,7 +458,6 @@ def admin_unblock(ip):
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "time": now_algeria().isoformat()})
-
 # ============================================================
 #  🎨 HTML — الواجهة الرئيسية
 # ============================================================
@@ -443,28 +487,35 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 @keyframes f2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(70px,-70px) scale(1.15)}}
 #login{position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.88);
   backdrop-filter:blur(20px);display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:24px;gap:14px;overflow-y:auto}
+  justify-content:center;padding:24px;gap:12px;overflow-y:auto}
 [data-theme="light"] #login{background:rgba(240,240,250,.92)}
-.logo-big{width:110px;height:110px;border-radius:32px;
+.logo-big{width:100px;height:100px;border-radius:28px;
   background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;
-  font-size:52px;font-weight:900;color:#fff;box-shadow:0 24px 70px rgba(139,92,246,.5);
+  font-size:46px;font-weight:900;color:#fff;box-shadow:0 20px 60px rgba(139,92,246,.5);
   animation:float 3.5s ease-in-out infinite}
-@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-14px) rotate(3deg)}}
-.brand-title{font-size:42px;font-weight:900;letter-spacing:-1px;
+@keyframes float{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-12px) rotate(3deg)}}
+.brand-title{font-size:38px;font-weight:900;letter-spacing:-1px;
   background:linear-gradient(135deg,#8b5cf6,#ec4899);
   -webkit-background-clip:text;background-clip:text;color:transparent}
-.brand-sub{color:var(--muted);font-size:13px;margin-top:-6px}
-.login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;margin-top:16px}
-.login-form input{width:100%;padding:16px 18px;border-radius:16px;border:2px solid var(--border);
+.brand-sub{color:var(--muted);font-size:13px;margin-top:-6px;margin-bottom:8px}
+.tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:5px;margin-bottom:10px}
+.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);
+  font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px;transition:all .2s}
+.tabs button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;
+  box-shadow:0 4px 12px rgba(139,92,246,.4)}
+.login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
+.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);
   background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;
   transition:all .2s;backdrop-filter:blur(10px)}
 .login-form input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(139,92,246,.15)}
-.login-form button{padding:16px;border-radius:16px;border:none;
-  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:16px;
+.login-form button.submit{padding:15px;border-radius:14px;border:none;
+  background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;
   font-weight:800;font-family:inherit;cursor:pointer;
-  box-shadow:0 12px 32px rgba(139,92,246,.4);transition:transform .15s}
-.login-form button:active{transform:scale(.97)}
-.login-form button:disabled{opacity:.6}
+  box-shadow:0 10px 26px rgba(139,92,246,.4);transition:transform .15s}
+.login-form button.submit:active{transform:scale(.97)}
+.login-form button.submit:disabled{opacity:.6}
+.err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
 .hd{display:flex;align-items:center;gap:12px;padding:12px 16px;
@@ -488,16 +539,16 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 #ch::-webkit-scrollbar{width:6px}
 #ch::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:20px;text-align:center;padding:50px 20px;min-height:55vh}
-.welcome .lg{width:100px;height:100px;border-radius:28px;
+  gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
+.welcome .lg{width:90px;height:90px;border-radius:26px;
   background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;
-  font-size:46px;font-weight:900;color:#fff;
-  box-shadow:0 24px 60px rgba(139,92,246,.5);animation:float 3.5s ease-in-out infinite}
-.welcome h2{font-size:26px;font-weight:900;
+  font-size:42px;font-weight:900;color:#fff;
+  box-shadow:0 20px 50px rgba(139,92,246,.5);animation:float 3.5s ease-in-out infinite}
+.welcome h2{font-size:24px;font-weight:900;
   background:linear-gradient(135deg,#8b5cf6,#ec4899);
   -webkit-background-clip:text;background-clip:text;color:transparent}
 .welcome p{color:var(--muted);font-size:14px;max-width:320px;line-height:1.8}
-.quick-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px;margin-top:8px}
+.quick-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:420px}
 .quick-chips button{padding:9px 16px;border-radius:14px;border:1px solid var(--border);
   background:var(--card);color:var(--text);font-family:inherit;font-size:13px;
   font-weight:600;cursor:pointer;transition:all .2s}
@@ -558,7 +609,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 #s:disabled{opacity:.4;cursor:not-allowed}
 @media(max-width:600px){
   .welcome .lg{width:80px;height:80px;font-size:36px}
-  .welcome h2{font-size:22px}.m{font-size:14px;padding:12px 15px}.brand-title{font-size:34px}
+  .welcome h2{font-size:22px}.m{font-size:14px;padding:12px 15px}.brand-title{font-size:32px}
 }
 </style>
 </head>
@@ -569,11 +620,29 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
   <div class="logo-big">M</div>
   <div class="brand-title">Moka AI</div>
   <div class="brand-sub">من تطوير محمد كامل</div>
-  <div class="login-form">
-    <input id="u" placeholder="اسم المستخدم" autocomplete="username">
-    <input id="p" type="password" placeholder="كلمة السر" autocomplete="current-password">
-    <button id="loginBtn" onclick="doLogin()">🚀 دخول</button>
+
+  <div class="tabs">
+    <button id="tabLogin" class="on" onclick="showTab('login')">🔑 دخول</button>
+    <button id="tabReg" onclick="showTab('reg')">✨ حساب جديد</button>
   </div>
+
+  <!-- نموذج الدخول -->
+  <div class="login-form" id="formLogin">
+    <input id="lu" placeholder="اسم المستخدم" autocomplete="username">
+    <input id="lp" type="password" placeholder="كلمة السر" autocomplete="current-password">
+    <button class="submit" id="loginBtn" onclick="doLogin()">🚀 دخول</button>
+  </div>
+
+  <!-- نموذج التسجيل -->
+  <div class="login-form" id="formReg" style="display:none">
+    <input id="ru" placeholder="اسم المستخدم (بالإنجليزية)" autocomplete="username">
+    <input id="rn" placeholder="الاسم الكامل (اختياري)">
+    <input id="rp" type="password" placeholder="كلمة السر (6 أحرف على الأقل)" autocomplete="new-password">
+    <input id="rp2" type="password" placeholder="تأكيد كلمة السر" autocomplete="new-password">
+    <button class="submit" id="regBtn" onclick="doRegister()">✨ إنشاء الحساب</button>
+  </div>
+
+  <div class="err" id="err"></div>
 </div>
 
 <div id="app">
@@ -581,7 +650,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
     <div class="hd-logo">M</div>
     <div>
       <h1>Moka AI</h1>
-      <div class="sub">من تطوير محمد كامل</div>
+      <div class="sub" id="userInfo">من تطوير محمد كامل</div>
     </div>
     <div class="hd-actions">
       <button onclick="toggleTheme()" id="themeBtn" title="المظهر">🌙</button>
@@ -611,9 +680,20 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 </div>
 
 <script>
-let mode="general",history=[],isAdmin=false,isSending=false;
+let mode="general",history=[],isAdmin=false,isSending=false,userName="";
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
-      s=document.getElementById("s"),micBtn=document.getElementById("micBtn");
+      s=document.getElementById("s"),micBtn=document.getElementById("micBtn"),
+      errEl=document.getElementById("err");
+
+function showTab(t){
+  const isL=t==="login";
+  document.getElementById("tabLogin").classList.toggle("on",isL);
+  document.getElementById("tabReg").classList.toggle("on",!isL);
+  document.getElementById("formLogin").style.display=isL?"flex":"none";
+  document.getElementById("formReg").style.display=isL?"none":"flex";
+  errEl.textContent="";
+}
+function setErr(t){errEl.textContent=t;setTimeout(()=>errEl.textContent="",4000)}
 
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
@@ -625,8 +705,7 @@ function md(t){
   return h;
 }
 function addMsg(text,who){
-  const w=document.createElement("div");
-  w.className="mw "+who;
+  const w=document.createElement("div");w.className="mw "+who;
   const wrap=document.createElement("div");wrap.className="msg-wrap";
   const m=document.createElement("div");m.className="m";
   m.innerHTML=who==="b"?md(text):esc(text);
@@ -648,32 +727,59 @@ function typ(){
 }
 function welcome(){
   ch.innerHTML='<div class="welcome"><div class="lg">M</div>'+
-    '<h2>مرحبًا بك في Moka AI</h2>'+
+    '<h2>مرحبًا '+(userName||"بك")+' 👋</h2>'+
     '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطًا وابدأ.</p>'+
     '<div class="quick-chips">'+
     '<button onclick="quick(\'اشرح الثقوب السوداء\')">🌌 الثقوب السوداء</button>'+
-    '<button onclick="quick(\'اكتب كود Python\')">💻 كود Python</button>'+
+    '<button onclick="quick(\'اكتب كود Python للفرز\')">💻 كود Python</button>'+
     '<button onclick="quick(\'ما هي عاصمة اليابان؟\')">🌏 جغرافيا</button>'+
+    '<button onclick="quick(\'لخص تاريخ الجزائر\')">📜 تاريخ</button>'+
     '</div></div>';
 }
 function quick(t){i.value=t;send()}
+
 async function doLogin(){
-  const u=document.getElementById("u").value.trim();
-  const p=document.getElementById("p").value;
-  if(!u||!p){alert("املأ الحقول");return}
+  const u=document.getElementById("lu").value.trim();
+  const p=document.getElementById("lp").value;
+  if(!u||!p){setErr("املأ الحقول");return}
   const btn=document.getElementById("loginBtn");
   btn.disabled=true;btn.textContent="⏳...";
   try{
     const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
-    if(!d.ok){alert("❌ "+d.msg);btn.disabled=false;btn.textContent="🚀 دخول";return}
-    isAdmin=d.role==="admin";
-    document.getElementById("login").style.display="none";
-    document.getElementById("app").classList.add("on");
-    welcome();i.focus();
-  }catch(e){alert("تعذر الاتصال");btn.disabled=false;btn.textContent="🚀 دخول"}
+    if(!d.ok){setErr("❌ "+d.msg);btn.disabled=false;btn.textContent="🚀 دخول";return}
+    enterApp(d.name,d.role);
+  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="🚀 دخول"}
 }
+
+async function doRegister(){
+  const u=document.getElementById("ru").value.trim();
+  const n=document.getElementById("rn").value.trim();
+  const p=document.getElementById("rp").value;
+  const p2=document.getElementById("rp2").value;
+  if(!u||!p){setErr("املأ الحقول الإلزامية");return}
+  if(p!==p2){setErr("كلمتا السر غير متطابقتين");return}
+  if(p.length<6){setErr("كلمة السر 6 أحرف على الأقل");return}
+  const btn=document.getElementById("regBtn");
+  btn.disabled=true;btn.textContent="⏳...";
+  try{
+    const r=await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username:u,password:p,name:n})});
+    const d=await r.json();
+    if(!d.ok){setErr("❌ "+d.msg);btn.disabled=false;btn.textContent="✨ إنشاء الحساب";return}
+    enterApp(d.name,d.role);
+  }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="✨ إنشاء الحساب"}
+}
+
+function enterApp(name,role){
+  userName=name;isAdmin=role==="admin";
+  document.getElementById("login").style.display="none";
+  document.getElementById("app").classList.add("on");
+  document.getElementById("userInfo").textContent="مرحبًا "+name+(isAdmin?" 👑":"")+" — من تطوير محمد كامل";
+  welcome();i.focus();
+}
+
 async function send(){
   const t=i.value.trim();
   if(!t||isSending)return;
@@ -717,13 +823,13 @@ function toggleMic(){
 }
 function openSidebar(){
   const a=["مسح المحادثة"];
-  if(isAdmin)a.push("لوحة الإدارة");
+  if(isAdmin)a.push("لوحة الإدارة 👑");
   a.push("تصدير المحادثة","تسجيل الخروج");
   const c=prompt("اختر رقمًا:\n"+a.map((x,n)=>`${n+1}. ${x}`).join("\n"));
   const idx=parseInt(c)-1,ch2=a[idx];
   if(!ch2)return;
-  if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}}
-  else if(ch2==="لوحة الإدارة"){window.open("/admin","_blank")}
+  if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}
+  else if(ch2.indexOf("لوحة الإدارة")>=0){window.open("/admin","_blank")}
   else if(ch2==="تصدير المحادثة"){
     const txt=history.map(m=>`[${m.role==="user"?"أنا":"Moka"}] ${m.content}`).join("\n\n");
     const bl=new Blob([txt],{type:"text/plain;charset=utf-8"});
@@ -733,7 +839,8 @@ function openSidebar(){
 }
 i.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
 i.addEventListener("input",()=>{i.style.height="auto";i.style.height=Math.min(i.scrollHeight,140)+"px"});
-document.getElementById("p").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
+document.getElementById("lp").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin()});
+document.getElementById("rp2").addEventListener("keydown",e=>{if(e.key==="Enter")doRegister()});
 </script>
 </body>
 </html>'''
@@ -755,9 +862,9 @@ body{font-family:Cairo;background:#0a0a12;color:#e8e8f0;padding:22px;min-height:
 h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
   -webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
 .sub{color:#8b8ba8;font-size:13px;margin-bottom:20px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
 .card{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
-.num{font-size:32px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);
   -webkit-background-clip:text;background-clip:text;color:transparent}
 .lbl{font-size:12px;color:#8b8ba8;margin-top:6px}
 .box{background:rgba(24,24,38,.85);border:1px solid rgba(255,255,255,.08);
@@ -783,7 +890,8 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
 
 <div class="grid">
   <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">👁️ زيارات</div></div>
-  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">🔑 تسجيلات</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">🔑 تسجيلات دخول</div></div>
+  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">✨ حسابات جديدة</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">💬 رسائل</div></div>
   <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">👥 مستخدمين</div></div>
 </div>
@@ -806,7 +914,7 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
 </div>
 
 <div class="box">
-  <h2>🔐 تسجيلات حديثة</h2>
+  <h2>🔐 تسجيلات دخول حديثة</h2>
   {% for r in stats.recent[-15:]|reverse %}
   <div class="row"><span>👤 {{ r.name }}</span>
     <span class="meta">{{ r.ip }} · {{ r.time }}</span></div>
@@ -844,7 +952,8 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"🚀 Moka AI v21.0 يعمل على http://0.0.0.0:{port}")
+    print(f"🚀 Moka AI v22.0 يعمل على http://0.0.0.0:{port}")
     print(f"   المطوّر: محمد كامل")
+    print(f"   المدير: {ADMIN_USERNAME}")
     print(f"   المزودون: {[p['name'] for p in PROVIDERS if p['key']]}")
     app.run(host="0.0.0.0", port=port, debug=False)
