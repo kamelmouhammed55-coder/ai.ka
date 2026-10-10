@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v24.0 - نسخة مستقرة
+#  Moka AI v25.0 - مع المساعد الصوتي
 #  المطور: محمد كامل
 # ============================================================
 
-import os, re, json, time, hashlib, secrets, traceback
+import os, re, json, time, hashlib, secrets
 import urllib.parse, urllib.request, urllib.error
 from datetime import datetime, timezone, timedelta
 from functools import wraps
@@ -32,11 +32,10 @@ SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
-# ✅ نماذج Groq الحالية فقط (2026)
+# ✅ النماذج الحالية فقط
 GROQ_MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
-    "llama3-70b-8192",
 ]
 
 # ============ الملفات ============
@@ -82,6 +81,7 @@ if ADMIN_USERNAME not in USERS:
 # ============ الإحصائيات ============
 DEFAULT_STATS = {
     "visitors": 0, "logins": 0, "registrations": 0, "messages": 0,
+    "images_generated": 0, "voice_used": 0,
     "modes": {m: 0 for m in ["general","math","code","religion",
                               "translate","summary","creative","science"]},
     "recent": [], "messages_log": [],
@@ -150,7 +150,7 @@ def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/24.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/25.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -158,7 +158,7 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/24.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/25.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
@@ -187,6 +187,8 @@ RULES = """
 اللغة: اجب بنفس لغة السؤال.
 التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم. للكود ```.
 الشخصية: ذكي، مختصر، ودود، محترم.
+
+ملاحظة: إجاباتك ستقرأ بصوت عال للمستخدم، فاجعلها واضحة ومقروءة.
 """
 
 MODES = {
@@ -211,11 +213,11 @@ def clean_reply(text):
     text = text.replace("\\text", "").replace("\\displaystyle", "")
     return text.strip()
 
-# ============ استدعاء AI (مع تسجيل مفصل) ============
+# ============ استدعاء AI ============
 def call_ai(messages, mode="general", max_tokens=1500):
     if not GROQ_API_KEY:
         print("[AI] ERROR: GROQ_API_KEY فارغ!")
-        return "⚠️ مفتاح API غير مضبوط. أضف GROQ_API_KEY في Environment."
+        return "مفتاح API غير مضبوط. أضف GROQ_API_KEY في Environment."
 
     system = build_system(mode)
     full = [{"role": "system", "content": system}] + messages[-20:]
@@ -231,12 +233,11 @@ def call_ai(messages, mode="general", max_tokens=1500):
             }).encode("utf-8")
 
             req = urllib.request.Request(
-                GROQ_URL,
-                data=payload,
+                GROQ_URL, data=payload,
                 headers={
                     "Authorization": f"Bearer {GROQ_API_KEY}",
                     "Content-Type": "application/json",
-                    "User-Agent": "MokaAI/24.0",
+                    "User-Agent": "MokaAI/25.0",
                 },
                 method="POST"
             )
@@ -252,24 +253,19 @@ def call_ai(messages, mode="general", max_tokens=1500):
         except urllib.error.HTTPError as e:
             err_body = ""
             try:
-                err_body = e.read().decode("utf-8")[:400]
+                err_body = e.read().decode("utf-8")[:300]
             except Exception:
                 pass
             last_error = f"HTTP {e.code}: {err_body}"
             print(f"[AI] FAIL | {model} | {last_error}")
             continue
 
-        except urllib.error.URLError as e:
-            last_error = f"URLError: {str(e)[:200]}"
-            print(f"[AI] FAIL | {model} | {last_error}")
-            continue
-
         except Exception as e:
-            last_error = f"{type(e).__name__}: {str(e)[:200]}"
+            last_error = f"{type(e).__name__}: {str(e)[:150]}"
             print(f"[AI] FAIL | {model} | {last_error}")
             continue
 
-    return f"⚠️ تعذر الاتصال. ({last_error[:200]})"
+    return f"تعذر الاتصال. ({last_error[:200]})"
 
 # ============ Routes ============
 
@@ -371,9 +367,24 @@ def api_chat():
     if mode not in MODES:
         mode = "general"
 
+    # هل الطلب لتوليد صورة؟
+    if msg.startswith("/صورة ") or msg.startswith("/image "):
+        prompt = msg.split(" ", 1)[1].strip()
+        if prompt:
+            STATS["images_generated"] = STATS.get("images_generated", 0) + 1
+            save_stats()
+            encoded = urllib.parse.quote(prompt)
+            img_url = (f"https://image.pollinations.ai/prompt/{encoded}"
+                       f"?width=768&height=768&nologo=true&seed={int(time.time())}")
+            return jsonify({
+                "reply": f"تم توليد الصورة: **{prompt}**",
+                "image": img_url
+            })
+
     conv = SESSIONS.setdefault(sid, [])
     conv.append({"role": "user", "content": msg})
 
+    # بحث تلقائي
     extra = ""
     wiki_kw = ["ما هو", "ما هي", "من هو", "من هي", "تاريخ", "دولة",
                "عاصمة", "تعريف", "معلومات", "أين", "متى"]
@@ -406,6 +417,14 @@ def api_chat():
 @login_required
 def api_clear():
     SESSIONS.pop(session.get("sid", "default"), None)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/voice_used", methods=["POST"])
+@login_required
+def api_voice_used():
+    STATS["voice_used"] = STATS.get("voice_used", 0) + 1
+    save_stats()
     return jsonify({"ok": True})
 
 
@@ -449,7 +468,7 @@ HTML_APP = r'''<!DOCTYPE html>
 <title>Moka AI - مساعدك الذكي</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;}
+:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;--success:#22c55e;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 .bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -475,13 +494,15 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
-.hd{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--card);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hd{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
 .hd-logo{width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0}
 .hd h1{font-size:17px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hd .sub{font-size:10px;color:var(--muted)}
-.hd-actions{margin-inline-start:auto;display:flex;gap:6px}
-.hd-actions button{width:38px;height:38px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px}
-#ch{flex:1;overflow-y:auto;padding:20px 14px 200px;display:flex;flex-direction:column;gap:14px}
+.hd-actions{margin-inline-start:auto;display:flex;gap:5px}
+.hd-actions button{width:38px;height:38px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px;display:grid;place-items:center}
+.hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;animation:pulse-g 2s ease-in-out infinite}
+@keyframes pulse-g{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}50%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
+#ch{flex:1;overflow-y:auto;padding:20px 14px 220px;display:flex;flex-direction:column;gap:14px}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
 .welcome .lg{width:90px;height:90px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:42px;font-weight:900;color:#fff;animation:float 3.5s ease-in-out infinite}
 .welcome h2{font-size:24px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -492,11 +513,16 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 @keyframes msgIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .mw.u{align-self:flex-start}
 .mw.b{align-self:flex-end}
-.m{padding:14px 18px;border-radius:20px;line-height:1.85;white-space:pre-wrap;word-wrap:break-word;font-size:15px}
+.m{padding:14px 18px;border-radius:20px;line-height:1.85;white-space:pre-wrap;word-wrap:break-word;font-size:15px;position:relative}
 .u .m{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-bottom-right-radius:6px}
 .b .m{background:var(--card);color:var(--text);border:1px solid var(--border);border-bottom-left-radius:6px}
 .b .m pre{background:#000;color:#e8e8f0;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px}
 .b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;font-family:monospace}
+.b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block}
+.msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;margin-top:4px}
+.mw:hover .msg-actions,.mw:focus-within .msg-actions{opacity:1}
+.msg-actions button{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer}
+.msg-actions button:hover{color:var(--primary);border-color:var(--primary)}
 .tp{display:flex;gap:5px;padding:14px 18px}
 .tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.15s}
@@ -508,8 +534,20 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .modes button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border-color:transparent}
 .input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:8px}
 #i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:10px 14px;font-family:inherit;font-size:15px;max-height:140px}
+.btn-mic{width:44px;height:44px;border-radius:14px;border:none;background:rgba(255,255,255,.08);color:var(--text);font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
+.btn-mic.rec{background:#dc2626;color:#fff;animation:pulse-r 1s infinite}
+@keyframes pulse-r{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 #s{width:44px;height:44px;border:none;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
 #s:disabled{opacity:.4}
+.modal{position:fixed;inset:0;background:rgba(10,10,20,.9);backdrop-filter:blur(20px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
+.modal.on{display:flex}
+.modal h2{font-size:22px;font-weight:900;margin-bottom:16px;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
+.setting{margin-bottom:16px}
+.setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600}
+.setting select,.setting input[type=range]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
+.setting input[type=range]{padding:0;accent-color:#8b5cf6}
+.voice-test{padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px}
+.modal-close{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:12px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -550,7 +588,9 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
       <div class="sub" id="userInfo">من تطوير محمد كامل</div>
     </div>
     <div class="hd-actions">
-      <button onclick="openSidebar()">&#9776;</button>
+      <button id="voiceBtn" onclick="toggleVoice()" title="الصوت">&#128263;</button>
+      <button onclick="openSettings()" title="إعدادات الصوت">&#9881;</button>
+      <button onclick="openSidebar()" title="القائمة">&#9776;</button>
     </div>
   </div>
 
@@ -568,17 +608,42 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
       <button data-m="science" onclick="sw('science')">علوم</button>
     </div>
     <div class="input-box">
-      <textarea id="i" rows="1" placeholder="اكتب رسالتك..."></textarea>
+      <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="إدخال صوتي">&#127908;</button>
+      <textarea id="i" rows="1" placeholder="اكتب... او /صورة قطة"></textarea>
       <button id="s" onclick="send()">&#10148;</button>
     </div>
   </div>
 </div>
 
-<script>
-let mode="general",history=[],isAdmin=false,isSending=false,userName="";
-const ch=document.getElementById("ch"),i=document.getElementById("i"),
-      s=document.getElementById("s"),errEl=document.getElementById("err");
+<div class="modal" id="settingsModal">
+  <button class="modal-close" onclick="closeSettings()">&#10005;</button>
+  <h2>إعدادات الصوت</h2>
+  <div class="setting">
+    <label>الصوت</label>
+    <select id="voiceSelect"></select>
+  </div>
+  <div class="setting">
+    <label>السرعة: <span id="speedVal">1.0</span></label>
+    <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1">
+  </div>
+  <div class="setting">
+    <label>النغمة: <span id="pitchVal">1.0</span></label>
+    <input type="range" id="pitchRange" min="0.5" max="2" step="0.1" value="1">
+  </div>
+  <button class="voice-test" onclick="testVoice()">تجربة الصوت</button>
+</div>
 
+<script>
+// ===== الحالة =====
+let mode="general",history=[],isAdmin=false,isSending=false,userName="";
+let voiceEnabled=false; // الصوت افتراضياً مطفأ
+let selectedVoice=null;
+
+const ch=document.getElementById("ch"),i=document.getElementById("i"),
+      s=document.getElementById("s"),errEl=document.getElementById("err"),
+      micBtn=document.getElementById("micBtn"),voiceBtn=document.getElementById("voiceBtn");
+
+// ===== Tabs =====
 function showTab(t){
   const isL=t==="login";
   document.getElementById("tabLogin").classList.toggle("on",isL);
@@ -589,6 +654,7 @@ function showTab(t){
 }
 function setErr(t){errEl.textContent=t;setTimeout(function(){errEl.textContent=""},4000)}
 
+// ===== Markdown =====
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
   let h=esc(t);
@@ -598,11 +664,27 @@ function md(t){
   h=h.replace(/\n/g,"<br>");
   return h;
 }
-function addMsg(text,who){
+
+// ===== الرسائل =====
+function addMsg(text,who,imageUrl){
   const w=document.createElement("div");w.className="mw "+who;
   const m=document.createElement("div");m.className="m";
   m.innerHTML=who==="b"?md(text):esc(text);
-  w.appendChild(m);ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
+  if(imageUrl){
+    const img=document.createElement("img");
+    img.src=imageUrl;img.alt="صورة مولدة";
+    m.appendChild(img);
+  }
+  w.appendChild(m);
+  if(who==="b"){
+    const actions=document.createElement("div");actions.className="msg-actions";
+    const b1=document.createElement("button");b1.textContent="نسخ";
+    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="تم";setTimeout(function(){b1.textContent="نسخ"},1500)};
+    const b2=document.createElement("button");b2.textContent="سماع";b2.onclick=function(){speak(text)};
+    actions.appendChild(b1);actions.appendChild(b2);
+    w.appendChild(actions);
+  }
+  ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
 }
 function typ(){
   const w=document.createElement("div");w.className="mw b";w.id="tp";
@@ -612,15 +694,108 @@ function typ(){
 function welcome(){
   ch.innerHTML='<div class="welcome"><div class="lg">M</div>'+
     '<h2>مرحبا '+(userName||"بك")+'</h2>'+
-    '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطا وابدأ.</p>'+
+    '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطا وابدأ.<br>💡 جرب: /صورة قطة</p>'+
     '<div class="quick-chips">'+
     '<button onclick="quick(\'اشرح الثقوب السوداء\')">الثقوب السوداء</button>'+
     '<button onclick="quick(\'اكتب كود Python للفرز\')">كود Python</button>'+
-    '<button onclick="quick(\'ما هي عاصمة اليابان\')">جغرافيا</button>'+
+    '<button onclick="quick(\'/صورة غروب على البحر\')">صورة غروب</button>'+
     '</div></div>';
 }
 function quick(t){i.value=t;send()}
 
+// ===== الصوت (TTS) =====
+function initVoices(){
+  const sel=document.getElementById("voiceSelect");
+  const voices=speechSynthesis.getVoices();
+  const arabicVoices=voices.filter(function(v){return v.lang.startsWith("ar")});
+  const others=voices.filter(function(v){return !v.lang.startsWith("ar")});
+  sel.innerHTML="";
+  arabicVoices.concat(others).forEach(function(v,idx){
+    const opt=document.createElement("option");
+    opt.value=idx;opt.textContent=v.name+" ("+v.lang+")";
+    opt.dataset.voiceName=v.name;
+    sel.appendChild(opt);
+  });
+  if(arabicVoices.length>0){selectedVoice=arabicVoices[0];}
+  else if(voices.length>0){selectedVoice=voices[0];}
+}
+if("speechSynthesis" in window){
+  speechSynthesis.onvoiceschanged=initVoices;
+  setTimeout(initVoices,100);
+}
+
+function toggleVoice(){
+  voiceEnabled=!voiceEnabled;
+  voiceBtn.classList.toggle("voice-on",voiceEnabled);
+  voiceBtn.innerHTML=voiceEnabled?"&#128266;":"&#128263;";
+  if(voiceEnabled){
+    fetch("/api/voice_used",{method:"POST"});
+    speak("تم تفعيل الصوت");
+  } else {
+    speechSynthesis.cancel();
+  }
+}
+
+function cleanForSpeech(t){
+  return t.replace(/```[\s\S]*?```/g,"")
+          .replace(/`([^`]+)`/g,"$1")
+          .replace(/\*\*/g,"")
+          .replace(/[#*_]/g,"")
+          .slice(0,500);
+}
+
+function speak(text){
+  if(!voiceEnabled)return;
+  if(!("speechSynthesis" in window))return;
+  speechSynthesis.cancel();
+  const clean=cleanForSpeech(text);
+  if(!clean)return;
+  const u=new SpeechSynthesisUtterance(clean);
+  const sel=document.getElementById("voiceSelect");
+  const chosen=sel.options[sel.selectedIndex];
+  if(chosen && chosen.dataset.voiceName){
+    const v=speechSynthesis.getVoices().find(function(vv){return vv.name===chosen.dataset.voiceName});
+    if(v)u.voice=v;
+    u.lang=v?v.lang:"ar-SA";
+  } else {u.lang="ar-SA";}
+  u.rate=parseFloat(document.getElementById("speedRange").value)||1;
+  u.pitch=parseFloat(document.getElementById("pitchRange").value)||1;
+  speechSynthesis.speak(u);
+}
+
+function openSettings(){
+  document.getElementById("settingsModal").classList.add("on");
+  initVoices();
+}
+function closeSettings(){document.getElementById("settingsModal").classList.remove("on");}
+
+document.getElementById("speedRange").addEventListener("input",function(e){
+  document.getElementById("speedVal").textContent=e.target.value;
+});
+document.getElementById("pitchRange").addEventListener("input",function(e){
+  document.getElementById("pitchVal").textContent=e.target.value;
+});
+function testVoice(){
+  const old=voiceEnabled;voiceEnabled=true;speak("مرحبا، أنا Moka AI من تطوير محمد كامل.");voiceEnabled=old;
+}
+
+// ===== Mic (STT) =====
+let recognition=null;
+function toggleMic(){
+  if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
+    alert("المتصفح لا يدعم المايك");return;
+  }
+  if(recognition){recognition.stop();return}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang="ar-SA";
+  recognition.onstart=function(){micBtn.classList.add("rec")};
+  recognition.onend=function(){micBtn.classList.remove("rec");recognition=null};
+  recognition.onerror=function(){micBtn.classList.remove("rec");recognition=null};
+  recognition.onresult=function(e){i.value+=(i.value?" ":"")+e.results[0][0].transcript;i.focus()};
+  recognition.start();
+}
+
+// ===== Login/Register =====
 async function doLogin(){
   const u=document.getElementById("lu").value.trim();
   const p=document.getElementById("lp").value;
@@ -635,15 +810,14 @@ async function doLogin(){
     enterApp(d.name,d.role);
   }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="دخول"}
 }
-
 async function doRegister(){
   const u=document.getElementById("ru").value.trim();
   const n=document.getElementById("rn").value.trim();
   const p=document.getElementById("rp").value;
   const p2=document.getElementById("rp2").value;
   if(!u||!p){setErr("املأ الحقول");return}
-  if(p!==p2){setErr("كلمتا السر غير متطابقتين");return}
-  if(p.length<6){setErr("كلمة السر 6 احرف على الاقل");return}
+  if(p!==p2){setErr("كلمتا السر مختلفتان");return}
+  if(p.length<6){setErr("6 احرف على الاقل");return}
   const btn=document.getElementById("regBtn");
   btn.disabled=true;btn.textContent="...";
   try{
@@ -654,7 +828,6 @@ async function doRegister(){
     enterApp(d.name,d.role);
   }catch(e){setErr("تعذر الاتصال");btn.disabled=false;btn.textContent="انشاء الحساب"}
 }
-
 function enterApp(name,role){
   userName=name;isAdmin=role==="admin";
   document.getElementById("login").style.display="none";
@@ -675,7 +848,9 @@ async function send(){
       body:JSON.stringify({message:t,mode:mode,history:history.slice(0,-1)})});
     const d=await r.json();tp.remove();
     const reply=d.reply||"لا يوجد رد.";
-    addMsg(reply,"b");history.push({role:"assistant",content:reply});
+    addMsg(reply,"b",d.image||null);
+    history.push({role:"assistant",content:reply});
+    if(voiceEnabled && !d.image){speak(reply);}
   }catch(e){tp.remove();addMsg("تعذر الاتصال","b")}
   finally{isSending=false;s.disabled=false;i.focus()}
 }
@@ -690,12 +865,12 @@ function openSidebar(){
   const idx=parseInt(c)-1,ch2=a[idx];
   if(!ch2)return;
   if(ch2==="مسح المحادثة"){if(confirm("مسح؟")){history=[];fetch("/api/clear",{method:"POST"});welcome()}}
-  else if(ch2==="لوحة الإدارة"){const k=prompt("أدخل مفتاح اللوحة:");if(k)window.open("/admin?key="+k,"_blank")}
+  else if(ch2==="لوحة الإدارة"){const k=prompt("مفتاح اللوحة:");if(k)window.open("/admin?key="+k,"_blank")}
   else if(ch2==="تصدير المحادثة"){
     const txt=history.map(function(m){return "["+(m.role==="user"?"أنا":"Moka")+"] "+m.content}).join("\n\n");
     const bl=new Blob([txt],{type:"text/plain;charset=utf-8"});
     const a2=document.createElement("a");a2.href=URL.createObjectURL(bl);
-    a2.download="moka-chat-"+Date.now()+".txt";a2.click();
+    a2.download="moka-"+Date.now()+".txt";a2.click();
   } else if(ch2==="تسجيل الخروج"){if(confirm("خروج؟"))fetch("/api/logout",{method:"POST"}).then(function(){location.reload()})}
 }
 
@@ -748,6 +923,8 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
   <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات دخول</div></div>
   <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات جديدة</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور مولدة</div></div>
+  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت مفعل</div></div>
   <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
 </div>
 
@@ -805,11 +982,11 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print(f"=" * 50)
-    print(f"Moka AI v24.0")
-    print(f"المطور: محمد كامل")
-    print(f"المدير: {ADMIN_USERNAME}")
-    print(f"Groq Key: {'موجود' if GROQ_API_KEY else 'مفقود!'}")
-    print(f"Port: {port}")
-    print(f"=" * 50)
+    print("=" * 50)
+    print("Moka AI v25.0 - مع المساعد الصوتي")
+    print("المطور: محمد كامل")
+    print("المدير: " + ADMIN_USERNAME)
+    print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
+    print("Port: " + str(port))
+    print("=" * 50)
     app.run(host="0.0.0.0", port=port, debug=False)
