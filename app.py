@@ -1047,3 +1047,75 @@ function installApp(){
 </script>
 </body>
 </html>'''
+
+
+# ============ لوحة الإدارة ============
+
+HTML_ADMIN = r'''<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة الإدارة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+body{font-family:Cairo;background:#0a0a14;color:#eaeaf5;padding:20px;min-height:100vh}
+h1{font-size:22px;font-weight:900;color:#ef4444;margin-bottom:6px}
+.sub{color:#8a8aa8;font-size:12px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+.card{background:#181828;border:1px solid #2a2a45;border-radius:14px;padding:16px;text-align:center}
+.num{font-size:24px;font-weight:900;color:#ef4444}
+.lbl{font-size:11px;color:#8a8aa8;margin-top:4px}
+.box{background:#181828;border:1px solid #2a2a45;border-radius:14px;padding:16px;margin-bottom:14px}
+.box h2{font-size:15px;font-weight:800;margin-bottom:10px}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2a2a45;font-size:13px;gap:8px;flex-wrap:wrap}
+.row:last-child{border-bottom:none}
+.row .meta{color:#8a8aa8;font-size:11px}
+.badge{background:#dc2626;color:#fff;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800}
+.badge.user{background:#22c55e}
+a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;margin-bottom:14px;font-size:13px}
+</style>
+</head>
+<body>
+<a href="/" class="back">← رجوع</a>
+<h1>لوحة الإدارة</h1>
+<div class="sub">Moka AI — محمد كامل</div>
+
+<div class="grid">
+  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">دخول</div></div>
+  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ stats.books_generated }}</div><div class="lbl">كتب</div></div>
+  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
+  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
+  <div class="card"><div class="num">{{ stats.ratings_up }}</div><div class="lbl">👍</div></div>
+  <div class="card"><div class="num">{{ stats.ratings_down }}</div><div class="lbl">👎</div></div>
+  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
+</div>
+
+<div class="box">
+  <h2>المستخدمون</h2>
+  {% for u, info in users.items() %}
+  <div class="row">
+    <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
+    <span class="badge {{ 'user' if info.role != 'admin' else '' }}">{{ info.role }}</span>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>'''
+
+
+# ============ التشغيل ============
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print("=" * 50, flush=True)
+    print("Moka AI v37.0", flush=True)
+    print("Admin: " + ADMIN_EMAIL, flush=True)
+    print("Google: " + ("OK" if GOOGLE_CLIENT_ID else "MISSING!"), flush=True)
+    print("Groq: " + ("OK" if GROQ_API_KEY else "MISSING!"), flush=True)
+    print("OpenRouter: " + ("OK" if OPENROUTER_API_KEY else "MISSING!"), flush=True)
+    print("Pollinations: Always ON", flush=True)
+    print("=" * 50, flush=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
