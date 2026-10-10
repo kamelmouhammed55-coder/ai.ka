@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v25.0 - مع المساعد الصوتي
+#  Moka AI v26.0 - نهائي
 #  المطور: محمد كامل
 # ============================================================
 
@@ -32,8 +32,12 @@ SECRET_SALT    = os.environ.get("SECRET_SALT",    "mokasalt2026kamel")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_URL     = "https://api.groq.com/openai/v1/chat/completions"
 
-# ✅ النماذج الحالية فقط
+# ✅ النماذج المتاحة (بالأولوية)
 GROQ_MODELS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3-32b",
+    "meta-llama/llama-4-scout-17b-16e-instruct",
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
 ]
@@ -150,7 +154,7 @@ def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/25.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/26.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -158,7 +162,7 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/25.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/26.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
@@ -181,14 +185,11 @@ RULES = """
 2. ممنوع ذكر اي شركة تقنية او اسماء نماذج اخرى.
 3. اسمك Moka AI.
 4. ممنوع تماما الرد على اي سؤال جنسي او اباحي او عنيف.
-   اعتذر: "أنا مساعد محترم، لا أتطرق لهذه المواضيع."
 5. رفض المحتوى الضار او الكراهية.
 
 اللغة: اجب بنفس لغة السؤال.
 التنسيق: ممنوع LaTeX. استخدم **غامق** و - للقوائم. للكود ```.
 الشخصية: ذكي، مختصر، ودود، محترم.
-
-ملاحظة: إجاباتك ستقرأ بصوت عال للمستخدم، فاجعلها واضحة ومقروءة.
 """
 
 MODES = {
@@ -237,7 +238,7 @@ def call_ai(messages, mode="general", max_tokens=1500):
                 headers={
                     "Authorization": f"Bearer {GROQ_API_KEY}",
                     "Content-Type": "application/json",
-                    "User-Agent": "MokaAI/25.0",
+                    "User-Agent": "MokaAI/26.0",
                 },
                 method="POST"
             )
@@ -251,21 +252,20 @@ def call_ai(messages, mode="general", max_tokens=1500):
                 return clean_reply(reply)
 
         except urllib.error.HTTPError as e:
-            err_body = ""
             try:
-                err_body = e.read().decode("utf-8")[:300]
+                err_body = e.read().decode("utf-8")[:200]
             except Exception:
-                pass
-            last_error = f"HTTP {e.code}: {err_body}"
-            print(f"[AI] FAIL | {model} | {last_error}")
+                err_body = ""
+            last_error = f"HTTP {e.code}"
+            print(f"[AI] FAIL | {model} | {last_error}: {err_body}")
             continue
 
         except Exception as e:
-            last_error = f"{type(e).__name__}: {str(e)[:150]}"
-            print(f"[AI] FAIL | {model} | {last_error}")
+            last_error = f"{type(e).__name__}"
+            print(f"[AI] FAIL | {model} | {last_error}: {str(e)[:150]}")
             continue
 
-    return f"تعذر الاتصال. ({last_error[:200]})"
+    return "⚠️ تعذر الاتصال بالخدمة. حاول مرة أخرى."
 
 # ============ Routes ============
 
@@ -367,7 +367,7 @@ def api_chat():
     if mode not in MODES:
         mode = "general"
 
-    # هل الطلب لتوليد صورة؟
+    # توليد صورة
     if msg.startswith("/صورة ") or msg.startswith("/image "):
         prompt = msg.split(" ", 1)[1].strip()
         if prompt:
@@ -468,7 +468,7 @@ HTML_APP = r'''<!DOCTYPE html>
 <title>Moka AI - مساعدك الذكي</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;--success:#22c55e;}
+:root{--bg:#0a0a12;--card:rgba(24,24,38,.85);--border:rgba(255,255,255,.08);--text:#e8e8f0;--muted:#8b8ba8;--primary:#8b5cf6;--accent:#06b6d4;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 .bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none}
@@ -483,12 +483,12 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .brand-title{font-size:38px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand-sub{color:var(--muted);font-size:13px;margin-top:-6px;margin-bottom:8px}
 .tabs{display:flex;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:5px;margin-bottom:10px;width:100%;max-width:340px}
-.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px;transition:all .2s}
+.tabs button{flex:1;padding:10px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:10px}
 .tabs button.on{background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff}
 .login-form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:10px}
-.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:all .2s}
-.login-form input:focus{border-color:var(--primary);box-shadow:0 0 0 4px rgba(139,92,246,.15)}
-.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 10px 26px rgba(139,92,246,.4);transition:transform .15s}
+.login-form input{width:100%;padding:14px 16px;border-radius:14px;border:2px solid var(--border);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none}
+.login-form input:focus{border-color:var(--primary)}
+.login-form button.submit{padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;transition:transform .15s}
 .login-form button.submit:active{transform:scale(.97)}
 .login-form button.submit:disabled{opacity:.6}
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
@@ -500,8 +500,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .hd .sub{font-size:10px;color:var(--muted)}
 .hd-actions{margin-inline-start:auto;display:flex;gap:5px}
 .hd-actions button{width:38px;height:38px;border-radius:12px;border:none;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer;font-size:16px;display:grid;place-items:center}
-.hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;animation:pulse-g 2s ease-in-out infinite}
-@keyframes pulse-g{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.6)}50%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
+.hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
 #ch{flex:1;overflow-y:auto;padding:20px 14px 220px;display:flex;flex-direction:column;gap:14px}
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:50px 20px;min-height:55vh}
 .welcome .lg{width:90px;height:90px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#ec4899,#06b6d4);display:grid;place-items:center;font-size:42px;font-weight:900;color:#fff;animation:float 3.5s ease-in-out infinite}
@@ -520,9 +519,8 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .b .m code{background:rgba(139,92,246,.18);padding:2px 7px;border-radius:6px;font-family:monospace}
 .b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block}
 .msg-actions{display:flex;gap:4px;opacity:0;transition:opacity .2s;margin-top:4px}
-.mw:hover .msg-actions,.mw:focus-within .msg-actions{opacity:1}
+.mw:hover .msg-actions{opacity:1}
 .msg-actions button{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);padding:4px 10px;border-radius:8px;font-size:11px;font-family:inherit;cursor:pointer}
-.msg-actions button:hover{color:var(--primary);border-color:var(--primary)}
 .tp{display:flex;gap:5px;padding:14px 18px}
 .tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.2s infinite}
 .tp span:nth-child(2){animation-delay:.15s}
@@ -535,8 +533,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:22px;padding:8px}
 #i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:10px 14px;font-family:inherit;font-size:15px;max-height:140px}
 .btn-mic{width:44px;height:44px;border-radius:14px;border:none;background:rgba(255,255,255,.08);color:var(--text);font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0}
-.btn-mic.rec{background:#dc2626;color:#fff;animation:pulse-r 1s infinite}
-@keyframes pulse-r{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.btn-mic.rec{background:#dc2626;color:#fff}
 #s{width:44px;height:44px;border:none;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
 #s:disabled{opacity:.4}
 .modal{position:fixed;inset:0;background:rgba(10,10,20,.9);backdrop-filter:blur(20px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
@@ -545,7 +542,6 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .setting{margin-bottom:16px}
 .setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600}
 .setting select,.setting input[type=range]{width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
-.setting input[type=range]{padding:0;accent-color:#8b5cf6}
 .voice-test{padding:12px;border-radius:12px;border:none;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px}
 .modal-close{position:absolute;top:16px;left:16px;width:40px;height:40px;border-radius:12px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
 </style>
@@ -588,9 +584,9 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
       <div class="sub" id="userInfo">من تطوير محمد كامل</div>
     </div>
     <div class="hd-actions">
-      <button id="voiceBtn" onclick="toggleVoice()" title="الصوت">&#128263;</button>
-      <button onclick="openSettings()" title="إعدادات الصوت">&#9881;</button>
-      <button onclick="openSidebar()" title="القائمة">&#9776;</button>
+      <button id="voiceBtn" onclick="toggleVoice()">&#128263;</button>
+      <button onclick="openSettings()">&#9881;</button>
+      <button onclick="openSidebar()">&#9776;</button>
     </div>
   </div>
 
@@ -608,7 +604,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
       <button data-m="science" onclick="sw('science')">علوم</button>
     </div>
     <div class="input-box">
-      <button class="btn-mic" id="micBtn" onclick="toggleMic()" title="إدخال صوتي">&#127908;</button>
+      <button class="btn-mic" id="micBtn" onclick="toggleMic()">&#127908;</button>
       <textarea id="i" rows="1" placeholder="اكتب... او /صورة قطة"></textarea>
       <button id="s" onclick="send()">&#10148;</button>
     </div>
@@ -634,16 +630,13 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 </div>
 
 <script>
-// ===== الحالة =====
 let mode="general",history=[],isAdmin=false,isSending=false,userName="";
-let voiceEnabled=false; // الصوت افتراضياً مطفأ
-let selectedVoice=null;
+let voiceEnabled=false;
 
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
       s=document.getElementById("s"),errEl=document.getElementById("err"),
       micBtn=document.getElementById("micBtn"),voiceBtn=document.getElementById("voiceBtn");
 
-// ===== Tabs =====
 function showTab(t){
   const isL=t==="login";
   document.getElementById("tabLogin").classList.toggle("on",isL);
@@ -654,7 +647,6 @@ function showTab(t){
 }
 function setErr(t){errEl.textContent=t;setTimeout(function(){errEl.textContent=""},4000)}
 
-// ===== Markdown =====
 function esc(t){return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function md(t){
   let h=esc(t);
@@ -664,23 +656,22 @@ function md(t){
   h=h.replace(/\n/g,"<br>");
   return h;
 }
-
-// ===== الرسائل =====
 function addMsg(text,who,imageUrl){
   const w=document.createElement("div");w.className="mw "+who;
   const m=document.createElement("div");m.className="m";
   m.innerHTML=who==="b"?md(text):esc(text);
   if(imageUrl){
     const img=document.createElement("img");
-    img.src=imageUrl;img.alt="صورة مولدة";
+    img.src=imageUrl;img.alt="صورة";
     m.appendChild(img);
   }
   w.appendChild(m);
   if(who==="b"){
     const actions=document.createElement("div");actions.className="msg-actions";
     const b1=document.createElement("button");b1.textContent="نسخ";
-    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="تم";setTimeout(function(){b1.textContent="نسخ"},1500)};
-    const b2=document.createElement("button");b2.textContent="سماع";b2.onclick=function(){speak(text)};
+    b1.onclick=function(){navigator.clipboard.writeText(text)};
+    const b2=document.createElement("button");b2.textContent="سماع";
+    b2.onclick=function(){var o=voiceEnabled;voiceEnabled=true;speak(text);voiceEnabled=o};
     actions.appendChild(b1);actions.appendChild(b2);
     w.appendChild(actions);
   }
@@ -694,7 +685,7 @@ function typ(){
 function welcome(){
   ch.innerHTML='<div class="welcome"><div class="lg">M</div>'+
     '<h2>مرحبا '+(userName||"بك")+'</h2>'+
-    '<p>مساعدك الذكي من تطوير محمد كامل. اختر نمطا وابدأ.<br>💡 جرب: /صورة قطة</p>'+
+    '<p>مساعدك الذكي من تطوير محمد كامل.<br>💡 جرب: /صورة قطة</p>'+
     '<div class="quick-chips">'+
     '<button onclick="quick(\'اشرح الثقوب السوداء\')">الثقوب السوداء</button>'+
     '<button onclick="quick(\'اكتب كود Python للفرز\')">كود Python</button>'+
@@ -703,21 +694,19 @@ function welcome(){
 }
 function quick(t){i.value=t;send()}
 
-// ===== الصوت (TTS) =====
 function initVoices(){
+  if(!("speechSynthesis" in window))return;
   const sel=document.getElementById("voiceSelect");
   const voices=speechSynthesis.getVoices();
-  const arabicVoices=voices.filter(function(v){return v.lang.startsWith("ar")});
+  const arabic=voices.filter(function(v){return v.lang.startsWith("ar")});
   const others=voices.filter(function(v){return !v.lang.startsWith("ar")});
   sel.innerHTML="";
-  arabicVoices.concat(others).forEach(function(v,idx){
+  arabic.concat(others).forEach(function(v,idx){
     const opt=document.createElement("option");
     opt.value=idx;opt.textContent=v.name+" ("+v.lang+")";
     opt.dataset.voiceName=v.name;
     sel.appendChild(opt);
   });
-  if(arabicVoices.length>0){selectedVoice=arabicVoices[0];}
-  else if(voices.length>0){selectedVoice=voices[0];}
 }
 if("speechSynthesis" in window){
   speechSynthesis.onvoiceschanged=initVoices;
@@ -735,15 +724,10 @@ function toggleVoice(){
     speechSynthesis.cancel();
   }
 }
-
 function cleanForSpeech(t){
-  return t.replace(/```[\s\S]*?```/g,"")
-          .replace(/`([^`]+)`/g,"$1")
-          .replace(/\*\*/g,"")
-          .replace(/[#*_]/g,"")
-          .slice(0,500);
+  return t.replace(/```[\s\S]*?```/g,"").replace(/`([^`]+)`/g,"$1")
+          .replace(/\*\*/g,"").replace(/[#*_]/g,"").slice(0,500);
 }
-
 function speak(text){
   if(!voiceEnabled)return;
   if(!("speechSynthesis" in window))return;
@@ -762,13 +746,8 @@ function speak(text){
   u.pitch=parseFloat(document.getElementById("pitchRange").value)||1;
   speechSynthesis.speak(u);
 }
-
-function openSettings(){
-  document.getElementById("settingsModal").classList.add("on");
-  initVoices();
-}
+function openSettings(){document.getElementById("settingsModal").classList.add("on");initVoices();}
 function closeSettings(){document.getElementById("settingsModal").classList.remove("on");}
-
 document.getElementById("speedRange").addEventListener("input",function(e){
   document.getElementById("speedVal").textContent=e.target.value;
 });
@@ -776,10 +755,9 @@ document.getElementById("pitchRange").addEventListener("input",function(e){
   document.getElementById("pitchVal").textContent=e.target.value;
 });
 function testVoice(){
-  const old=voiceEnabled;voiceEnabled=true;speak("مرحبا، أنا Moka AI من تطوير محمد كامل.");voiceEnabled=old;
+  var o=voiceEnabled;voiceEnabled=true;speak("مرحبا، أنا Moka AI من تطوير محمد كامل.");voiceEnabled=o;
 }
 
-// ===== Mic (STT) =====
 let recognition=null;
 function toggleMic(){
   if(!("webkitSpeechRecognition" in window)&&!("SpeechRecognition" in window)){
@@ -795,7 +773,6 @@ function toggleMic(){
   recognition.start();
 }
 
-// ===== Login/Register =====
 async function doLogin(){
   const u=document.getElementById("lu").value.trim();
   const p=document.getElementById("lp").value;
@@ -835,7 +812,6 @@ function enterApp(name,role){
   document.getElementById("userInfo").textContent="مرحبا "+name+(isAdmin?" (مدير)":"");
   welcome();i.focus();
 }
-
 async function send(){
   const t=i.value.trim();
   if(!t||isSending)return;
@@ -856,7 +832,6 @@ async function send(){
 }
 function sw(m){mode=m;document.querySelectorAll(".modes button").forEach(function(b){
   b.classList.toggle("on",b.dataset.m===m)})}
-
 function openSidebar(){
   const a=["مسح المحادثة"];
   if(isAdmin)a.push("لوحة الإدارة");
@@ -873,7 +848,6 @@ function openSidebar(){
     a2.download="moka-"+Date.now()+".txt";a2.click();
   } else if(ch2==="تسجيل الخروج"){if(confirm("خروج؟"))fetch("/api/logout",{method:"POST"}).then(function(){location.reload()})}
 }
-
 i.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}});
 i.addEventListener("input",function(){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,140)+"px"});
 document.getElementById("lp").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
@@ -920,16 +894,16 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 
 <div class="grid">
   <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
-  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات دخول</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
   <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات جديدة</div></div>
   <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
-  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور مولدة</div></div>
-  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت مفعل</div></div>
+  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
+  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
   <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
 </div>
 
 <div class="box">
-  <h2>استخدام الأنماط</h2>
+  <h2>الأنماط</h2>
   {% for k, v in stats.modes.items() %}
   <div class="row"><span>{{ k }}</span><b>{{ v }}</b></div>
   {% endfor %}
@@ -983,10 +957,10 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("=" * 50)
-    print("Moka AI v25.0 - مع المساعد الصوتي")
+    print("Moka AI v26.0 - نهائي")
     print("المطور: محمد كامل")
     print("المدير: " + ADMIN_USERNAME)
     print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
-    print("Port: " + str(port))
+    print("النموذج الأساسي: " + GROQ_MODELS[0])
     print("=" * 50)
     app.run(host="0.0.0.0", port=port, debug=False)
