@@ -398,7 +398,7 @@ def health():
 #  HTML — الواجهة الرئيسية
 # ============================================================
 
-HTML_APP = r"""<!DOCTYPE html>
+HTML_APP = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
