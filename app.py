@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  Moka AI v28.0 - Professional Edition
+#  Moka AI v29.0 - Red & Navy Edition
 #  المطور: محمد كامل
 # ============================================================
 
@@ -143,7 +143,7 @@ def search_wikipedia(query):
     try:
         url = ("https://ar.wikipedia.org/w/api.php?action=query&list=search&srsearch="
                + urllib.parse.quote(query) + "&format=json&utf8=1&srlimit=1")
-        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/28.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "MokaAI/29.0"})
         with urllib.request.urlopen(req, timeout=8) as r:
             data = json.loads(r.read().decode("utf-8"))
         hits = data.get("query", {}).get("search", [])
@@ -151,7 +151,7 @@ def search_wikipedia(query):
         title = hits[0]["title"]
         sum_url = ("https://ar.wikipedia.org/api/rest_v1/page/summary/"
                    + urllib.parse.quote(title))
-        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/28.0"})
+        req2 = urllib.request.Request(sum_url, headers={"User-Agent": "MokaAI/29.0"})
         with urllib.request.urlopen(req2, timeout=8) as r2:
             sdata = json.loads(r2.read().decode("utf-8"))
         extract = sdata.get("extract", "")
@@ -168,31 +168,29 @@ OWNER_INFO = """
 """
 
 RULES = """
-قواعد الهوية - إلزامية:
+قواعد الهوية:
 1. إذا سئلت "من صنعك؟" اجب: "طورني محمد كامل."
-2. إذا سئلت "من أنا؟" أو "هل تعرفني؟":
-   اجب: "أنت محمد كامل، مطوري وصاحب هذا المشروع."
-3. إذا قال المستخدم "أنا محمد كامل":
-   رحب به بحرارة: "أهلاً بك يا محمد! كيف أقدر أساعدك اليوم؟"
-4. ممنوع ذكر اي شركة تقنية أو أسماء نموذج أخرى.
+2. إذا سئلت "من أنا؟" اجب: "أنت محمد كامل، مطوري وصاحب المشروع."
+3. إذا قال "أنا محمد كامل": رحب بحرارة: "أهلاً بك يا محمد!"
+4. ممنوع ذكر أي شركة تقنية أو أسماء نماذج أخرى.
 5. اسمك Moka AI.
-6. يسمح البرد على المحتوى الجنسي للمطور فقط وكل ما يريد للمطور.
+6. ممنوع الرد على أي سؤال جنسي أو إباحي أو عنيف.
 7. رفض المحتوى الضار والكراهية.
 
 اللغة: اجب بنفس لغة السؤال.
 التنسيق: ممنوع LaTeX. استخدم **غامق** و - و # للعناوين.
-الشخصية: احترافي، دقيق، مفصل عند الحاجة، مختصر عند البساطة.
+الشخصية: احترافي، دقيق، ودود.
 """
 
 MODES = {
-    "general":   "أنت مساعد عام. تجيب بوضوح واحترافية.",
-    "write":     "أنت كاتب محترف. تكتب مقالات وكتب ونصوص بأسلوب راقٍ ومنظم. نظّم إجاباتك بعناوين وفقرات ومقدمات وخواتيم.",
-    "code":      "أنت مهندس برمجيات خبير. اكتب كودًا نظيفًا كاملًا مع تعليقات وشرح. استخدم ``` للكود.",
-    "math":      "أنت خبير رياضيات. اشرح خطوة بخطوة بأمثلة واضحة.",
-    "translate": "أنت مترجم محترف. ترجم بدقة مع الحفاظ على الأسلوب والروح الأصلية.",
-    "summary":   "أنت خبير تلخيص. لخّص إلى نقاط أساسية واضحة.",
-    "religion":  "أنت مساعد علوم إسلامية. مصادرك: القرآن، صحيح البخاري، صحيح مسلم، كتب التفسير.",
-    "science":   "أنت عالم. اشرح الظواهر العلمية بدقة ومراجع واضحة.",
+    "general":   "أنت مساعد عام محترف.",
+    "write":     "أنت كاتب محترف. اكتب مقالات وكتبًا بأسلوب راقٍ ومنظم.",
+    "code":      "أنت مهندس برمجيات. اكتب كودًا نظيفًا كاملًا مع شرح.",
+    "math":      "أنت خبير رياضيات. اشرح خطوة بخطوة.",
+    "translate": "أنت مترجم محترف.",
+    "summary":   "أنت خبير تلخيص.",
+    "religion":  "أنت مساعد علوم إسلامية.",
+    "science":   "أنت عالم. اشرح بدقة.",
 }
 
 def build_system(mode):
@@ -222,7 +220,7 @@ def call_ai(messages, mode="general", max_tokens=2000):
                 GROQ_URL, data=payload,
                 headers={"Authorization": f"Bearer {GROQ_API_KEY}",
                          "Content-Type": "application/json",
-                         "User-Agent": "MokaAI/28.0"},
+                         "User-Agent": "MokaAI/29.0"},
                 method="POST")
             with urllib.request.urlopen(req, timeout=90) as r:
                 data = json.loads(r.read().decode("utf-8"))
@@ -242,42 +240,27 @@ def call_ai(messages, mode="general", max_tokens=2000):
 
 # ============ 📚 مولّد الكتب ============
 def generate_book(topic):
-    """يولّد كتابًا من 3 فصول مع فهرس ومقدمة"""
     book = {"topic": topic, "toc": "", "chapters": [], "intro": ""}
-
-    # 1. الفهرس
     toc_prompt = [
         {"role": "user", "content":
          f"اكتب فهرسًا احترافيًا لكتاب عن: '{topic}'.\n"
-         f"اجعل الفهرس من 3 فصول رئيسية فقط.\n"
-         f"لكل فصل: رقم + عنوان + 3 عناوين فرعية.\n"
-         f"اكتب بلغة عربية فصيحة. لا تضف أي شرح، فقط الفهرس."}
+         f"فهرس من 3 فصول رئيسية.\nلكل فصل: رقم + عنوان + 3 عناوين فرعية."}
     ]
     book["toc"] = call_ai(toc_prompt, mode="write", max_tokens=600)
 
-    # 2. المقدمة
     intro_prompt = [
         {"role": "user", "content":
-         f"اكتب مقدمة احترافية لكتاب عن: '{topic}'.\n"
-         f"المقدمة من 3 فقرات: تعريف الموضوع، أهميته، ما سيقدمه الكتاب.\n"
-         f"بلغة عربية راقية وأسلوب جذاب."}
+         f"اكتب مقدمة احترافية لكتاب عن: '{topic}'.\n3 فقرات."}
     ]
     book["intro"] = call_ai(intro_prompt, mode="write", max_tokens=800)
 
-    # 3. الفصول الثلاثة
-    chapters_titles = ["الفصل الأول", "الفصل الثاني", "الفصل الثالث"]
-    for i, ct in enumerate(chapters_titles, 1):
+    for i, ct in enumerate(["الفصل الأول","الفصل الثاني","الفصل الثالث"], 1):
         ch_prompt = [
             {"role": "user", "content":
-             f"اكتب {ct} من كتاب عن: '{topic}'.\n"
-             f"الفصل من 500 كلمة.\n"
-             f"قسّمه إلى 3 أقسام فرعية بعناوين.\n"
-             f"استخدم أسلوبًا أكاديميًا احترافيًا.\n"
-             f"لا تكرر المقدمة. ابدأ من حيث انتهت."}
+             f"اكتب {ct} من كتاب عن: '{topic}'. من 500 كلمة، مقسم إلى 3 أقسام."}
         ]
         ch = call_ai(ch_prompt, mode="write", max_tokens=1800)
         book["chapters"].append({"title": ct, "content": ch})
-
     return book
 
 # ============ Routes ============
@@ -289,6 +272,29 @@ def index():
     if get_ip() in BLOCKED_IPS:
         return "تم حظر وصولك.", 403
     return render_template_string(HTML_APP)
+
+
+@app.route("/manifest.json")
+def manifest():
+    return Response(MANIFEST_JSON, mimetype="application/manifest+json")
+
+
+@app.route("/sw.js")
+def service_worker():
+    resp = Response(SERVICE_WORKER_JS, mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    return resp
+
+
+@app.route("/icon.svg")
+def icon_svg():
+    return Response(ICON_SVG, mimetype="image/svg+xml")
+
+
+@app.route("/icon-192.png")
+@app.route("/icon-512.png")
+def icon_png():
+    return redirect("/icon.svg")
 
 
 @app.route("/api/register", methods=["POST"])
@@ -378,10 +384,10 @@ def api_chat():
                      "girl","woman","man","person","human","face",
                      "امرأة","رجل","فتاة","شاب","شخص","إنسان","وجه"]
         if any(w in prompt.lower() for w in forbidden):
-            return jsonify({"reply": "🚫 عذرًا، جرّب وصفًا آخر (طبيعة، حيوانات، أشياء)."})
-        enhanced = (f"a beautiful photograph of {prompt}, "
-                    "landscape photography, no people, no humans, no faces, "
-                    "highly detailed, 8k, professional, cinematic lighting")
+            return jsonify({"reply": "🚫 جرّب وصفًا آخر (طبيعة، حيوانات، أشياء)."})
+        enhanced = (f"a beautiful photograph of {prompt}, landscape photography, "
+                    "no people, no humans, no faces, highly detailed, 8k, "
+                    "professional, cinematic lighting")
         STATS["images_generated"] = STATS.get("images_generated", 0) + 1
         save_stats()
         encoded = urllib.parse.quote(enhanced)
@@ -391,7 +397,7 @@ def api_chat():
         return jsonify({"reply": f"🎨 تم توليد الصورة: **{prompt}**",
                         "image": img_url})
 
-    # 📚 مولّد الكتب
+    # مولّد الكتب
     if msg.startswith("/كتاب ") or msg.startswith("/book "):
         topic = msg.split(" ", 1)[1].strip()
         if not topic:
@@ -400,18 +406,15 @@ def api_chat():
         save_stats()
         try:
             book = generate_book(topic)
-            BOOKS[sid + "_" + str(int(time.time()))] = book
-            # تنسيق الرد
-            out = f"# 📖 كتاب: {topic}\n\n"
-            out += "## 📋 الفهرس\n\n" + book["toc"] + "\n\n"
-            out += "---\n\n## ✍️ المقدمة\n\n" + book["intro"] + "\n\n---\n\n"
+            out = f"# 📖 كتاب: {topic}\n\n## 📋 الفهرس\n\n{book['toc']}\n\n---\n\n"
+            out += f"## ✍️ المقدمة\n\n{book['intro']}\n\n---\n\n"
             for ch in book["chapters"]:
                 out += f"## {ch['title']}\n\n{ch['content']}\n\n---\n\n"
             out += "_📘 نهاية الكتاب_"
             return jsonify({"reply": out, "book": True})
         except Exception as e:
             print("[BOOK] " + str(e))
-            return jsonify({"reply": "⚠️ فشل توليد الكتاب. حاول مرة أخرى."})
+            return jsonify({"reply": "⚠️ فشل توليد الكتاب."})
 
     conv = SESSIONS.setdefault(sid, [])
     conv.append({"role": "user", "content": msg})
@@ -421,7 +424,7 @@ def api_chat():
     if any(k in msg for k in wiki_kw) and len(msg) > 8:
         w = search_wikipedia(msg)
         if w:
-            extra += f"\n\n[معلومات إضافية]\n{w}"
+            extra += f"\n\n[معلومات]\n{w}"
     if extra:
         conv.insert(-1, {"role": "system", "content": extra.strip()})
     if len(conv) > 24:
@@ -467,7 +470,7 @@ def api_tts():
                "?ie=UTF-8&client=tw-ob&tl=" + lang + "&q="
                + urllib.parse.quote(text))
         req = urllib.request.Request(url, headers={
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "User-Agent": "Mozilla/5.0",
             "Referer": "https://translate.google.com/",
         })
         with urllib.request.urlopen(req, timeout=15) as r:
@@ -510,47 +513,137 @@ def admin_unblock(ip):
 def health():
     return jsonify({"status": "ok", "time": now_algeria().isoformat()})
 
+
+# ============ PWA: Manifest + SW + Icon ============
+
+MANIFEST_JSON = json.dumps({
+    "name": "Moka AI",
+    "short_name": "Moka AI",
+    "description": "مساعد ذكي عربي من تطوير محمد كامل",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait",
+    "background_color": "#0a0a14",
+    "theme_color": "#dc2626",
+    "lang": "ar",
+    "dir": "rtl",
+    "categories": ["productivity","education"],
+    "icons": [
+        {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"},
+        {"src": "/icon.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "maskable"},
+        {"src": "/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable"},
+    ]
+}, ensure_ascii=False)
+
+SERVICE_WORKER_JS = """
+const CACHE = "moka-v29";
+self.addEventListener("install", function(){self.skipWaiting()});
+self.addEventListener("activate", function(e){
+  e.waitUntil(self.clients.claim());
+  e.waitUntil(caches.keys().then(function(ks){
+    return Promise.all(ks.filter(function(k){return k!==CACHE}).map(function(k){return caches.delete(k)}));
+  }));
+});
+self.addEventListener("fetch", function(e){
+  if(e.request.url.includes("/api/")) return;
+  if(!e.request.url.startsWith(location.origin)) return;
+  e.respondWith(
+    fetch(e.request).then(function(r){
+      if(r && r.status === 200){
+        const c = r.clone();
+        caches.open(CACHE).then(function(x){x.put(e.request, c)});
+      }
+      return r;
+    }).catch(function(){return caches.match(e.request)})
+  );
+});
+"""
+
+ICON_SVG = """<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="50%" stop-color="#991b1b"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ef4444"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#g1)"/>
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+  <text x="256" y="330" font-family="Arial Black, Arial, sans-serif" font-size="280" font-weight="900" fill="url(#g2)" text-anchor="middle" filter="url(#glow)">M</text>
+  <circle cx="380" cy="130" r="20" fill="#fbbf24"/>
+  <circle cx="380" cy="130" r="9" fill="#fff"/>
+</svg>"""
+
 # ============ HTML الرئيسية ============
 
 HTML_APP = r'''<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Moka AI - مساعدك الاحترافي</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Moka AI - مساعدك الذكي</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#dc2626">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Moka AI">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#08080f;--bg2:#0f0f1a;--card:rgba(20,20,35,.72);--card2:rgba(30,30,50,.6);--border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.12);--text:#eaeaf5;--muted:#8a8aa8;--primary:#8b5cf6;--primary2:#c084fc;--accent:#06b6d4;--gold:#fbbf24;--grad:linear-gradient(135deg,#8b5cf6,#c084fc,#06b6d4)}
+:root{
+  --bg:#0a0a14;
+  --card:rgba(20,20,35,.75);
+  --card2:rgba(30,30,50,.6);
+  --border:rgba(255,255,255,.07);
+  --border2:rgba(255,255,255,.12);
+  --text:#eaeaf5;
+  --muted:#8a8aa8;
+  --red:#dc2626;
+  --red2:#ef4444;
+  --navy:#1e3a8a;
+  --navy2:#3b82f6;
+  --gold:#fbbf24;
+  --grad:linear-gradient(135deg,#dc2626,#991b1b,#1e3a8a);
+  --grad2:linear-gradient(135deg,#ef4444,#3b82f6);
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
-.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 20% 20%,rgba(139,92,246,.15),transparent 50%),radial-gradient(circle at 80% 80%,rgba(6,182,212,.12),transparent 50%)}
-.bg::before{content:"";position:absolute;width:600px;height:600px;border-radius:50%;background:linear-gradient(135deg,#8b5cf6,#ec4899);filter:blur(140px);opacity:.25;top:-200px;right:-200px;animation:fb 24s ease-in-out infinite}
-.bg::after{content:"";position:absolute;width:500px;height:500px;border-radius:50%;background:linear-gradient(135deg,#06b6d4,#8b5cf6);filter:blur(140px);opacity:.2;bottom:-200px;left:-200px;animation:fb2 30s ease-in-out infinite}
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(circle at 20% 20%,rgba(220,38,38,.15),transparent 50%),radial-gradient(circle at 80% 80%,rgba(30,58,138,.2),transparent 50%)}
+.bg::before{content:"";position:absolute;width:600px;height:600px;border-radius:50%;background:linear-gradient(135deg,#dc2626,#991b1b);filter:blur(140px);opacity:.22;top:-200px;right:-200px;animation:fb 24s ease-in-out infinite}
+.bg::after{content:"";position:absolute;width:500px;height:500px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#3b82f6);filter:blur(140px);opacity:.22;bottom:-200px;left:-200px;animation:fb2 30s ease-in-out infinite}
 @keyframes fb{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,80px) scale(1.2)}}
 @keyframes fb2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(80px,-80px) scale(1.15)}}
 
-/* ===== Login ===== */
-#login{position:fixed;inset:0;z-index:999;background:rgba(8,8,15,.92);backdrop-filter:blur(30px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px;overflow-y:auto}
-.logo-big{width:110px;height:110px;border-radius:32px;background:var(--grad);display:grid;place-items:center;font-size:52px;font-weight:900;color:#fff;box-shadow:0 24px 80px rgba(139,92,246,.6);animation:fl 4s ease-in-out infinite}
+#login{position:fixed;inset:0;z-index:999;background:rgba(10,10,20,.92);backdrop-filter:blur(30px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:14px;overflow-y:auto}
+.logo-big{width:110px;height:110px;border-radius:32px;background:var(--grad);display:grid;place-items:center;font-size:52px;font-weight:900;color:#fff;box-shadow:0 24px 80px rgba(220,38,38,.55);animation:fl 4s ease-in-out infinite}
 @keyframes fl{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-16px) rotate(4deg)}}
 .brand-title{font-size:44px;font-weight:900;letter-spacing:-1.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand-sub{color:var(--muted);font-size:13px;margin-top:-4px;margin-bottom:10px;letter-spacing:.5px}
 .tabs{display:flex;gap:5px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:5px;margin-bottom:12px;width:100%;max-width:360px}
 .tabs button{flex:1;padding:11px;border:none;background:transparent;color:var(--muted);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border-radius:12px;transition:all .25s}
-.tabs button.on{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(139,92,246,.4)}
+.tabs button.on{background:var(--grad);color:#fff;box-shadow:0 8px 24px rgba(220,38,38,.4)}
 .login-form{width:100%;max-width:360px;display:flex;flex-direction:column;gap:11px}
 .login-form input{width:100%;padding:16px 18px;border-radius:14px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:15px;font-family:inherit;outline:none;transition:all .25s}
-.login-form input:focus{border-color:var(--primary);background:rgba(139,92,246,.08);box-shadow:0 0 0 4px rgba(139,92,246,.12)}
-.login-form button.submit{padding:16px;border-radius:14px;border:none;background:var(--grad);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 12px 32px rgba(139,92,246,.45);transition:transform .15s}
+.login-form input:focus{border-color:var(--red);background:rgba(220,38,38,.08);box-shadow:0 0 0 4px rgba(220,38,38,.12)}
+.login-form button.submit{padding:16px;border-radius:14px;border:none;background:var(--grad);color:#fff;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 12px 32px rgba(220,38,38,.45);transition:transform .15s}
 .login-form button.submit:active{transform:scale(.97)}
 .login-form button.submit:disabled{opacity:.5}
 .err{color:#f87171;font-size:12px;text-align:center;min-height:16px}
 
-/* ===== App Layout ===== */
 #app{display:none;min-height:100vh;flex-direction:column}
 #app.on{display:flex}
-.hd{display:flex;align-items:center;gap:11px;padding:12px 16px;background:rgba(12,12,22,.75);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
-.hd-logo{width:42px;height:42px;border-radius:14px;background:var(--grad);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 8px 24px rgba(139,92,246,.4)}
+.hd{display:flex;align-items:center;gap:11px;padding:12px 16px;background:rgba(12,12,22,.78);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
+.hd-logo{width:42px;height:42px;border-radius:14px;background:var(--grad);display:grid;place-items:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;box-shadow:0 8px 24px rgba(220,38,38,.4)}
 .hd h1{font-size:17px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .hd .sub{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:5px}
 .hd .sub::before{content:"";width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e}
@@ -559,72 +652,68 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .hd-actions button:hover{background:rgba(255,255,255,.1)}
 .hd-actions button.voice-on{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;box-shadow:0 0 20px rgba(34,197,94,.5)}
 
-/* ===== Chat area ===== */
 #ch{flex:1;overflow-y:auto;padding:24px 16px 240px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth}
 #ch::-webkit-scrollbar{width:6px}
 #ch::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px}
 
-/* Empty state */
 .welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;padding:40px 20px;min-height:60vh}
-.welcome .lg{width:100px;height:100px;border-radius:30px;background:var(--grad);display:grid;place-items:center;font-size:48px;font-weight:900;color:#fff;box-shadow:0 28px 70px rgba(139,92,246,.5);animation:fl 4s ease-in-out infinite}
+.welcome .lg{width:100px;height:100px;border-radius:30px;background:var(--grad);display:grid;place-items:center;font-size:48px;font-weight:900;color:#fff;box-shadow:0 28px 70px rgba(220,38,38,.5);animation:fl 4s ease-in-out infinite}
 .welcome h2{font-size:28px;font-weight:900;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .welcome p{color:var(--muted);font-size:14px;max-width:340px;line-height:1.9}
 .suggest-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:440px;width:100%;margin-top:10px}
 .suggest-card{padding:14px;border-radius:16px;border:1px solid var(--border2);background:var(--card);cursor:pointer;text-align:right;transition:all .25s}
-.suggest-card:hover{border-color:var(--primary);background:rgba(139,92,246,.08);transform:translateY(-3px)}
+.suggest-card:hover{border-color:var(--red);background:rgba(220,38,38,.08);transform:translateY(-3px)}
 .suggest-card .ico{font-size:20px;margin-bottom:6px;display:block}
 .suggest-card .ttl{font-size:13px;font-weight:800;margin-bottom:3px}
 .suggest-card .dsc{font-size:11px;color:var(--muted);line-height:1.5}
 
-/* Messages */
 .mw{display:flex;gap:10px;max-width:94%;animation:mi .4s cubic-bezier(.16,1,.3,1)}
 @keyframes mi{from{opacity:0;transform:translateY(15px)}to{opacity:1;transform:translateY(0)}}
 .mw.u{align-self:flex-start;flex-direction:row-reverse}
 .mw.b{align-self:flex-end}
 .avt{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;font-weight:900;font-size:14px;color:#fff;flex-shrink:0}
-.mw.u .avt{background:linear-gradient(135deg,#06b6d4,#8b5cf6)}
+.mw.u .avt{background:var(--grad2)}
 .mw.b .avt{background:var(--grad)}
 .m-body{flex:1;min-width:0}
 .m-meta{display:flex;gap:8px;font-size:10px;color:var(--muted);margin-bottom:5px;font-weight:600}
 .mw.u .m-meta{justify-content:flex-start}
 .m{padding:14px 18px;border-radius:18px;line-height:1.9;word-wrap:break-word;font-size:15px;overflow-wrap:anywhere}
-.u .m{background:linear-gradient(135deg,rgba(6,182,212,.9),rgba(139,92,246,.9));color:#fff;border-top-right-radius:6px}
+.u .m{background:var(--grad2);color:#fff;border-top-right-radius:6px;box-shadow:0 8px 26px rgba(59,130,246,.35)}
 .b .m{background:var(--card2);color:var(--text);border:1px solid var(--border);border-top-left-radius:6px;backdrop-filter:blur(14px)}
 .b .m h1,.b .m h2,.b .m h3{margin:10px 0 6px;font-weight:900;line-height:1.4}
 .b .m h1{font-size:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.b .m h2{font-size:17px;color:var(--primary2)}
-.b .m h3{font-size:15px;color:var(--accent)}
+.b .m h2{font-size:17px;color:#ef4444}
+.b .m h3{font-size:15px;color:#3b82f6}
 .b .m p{margin:6px 0}
-.b .m strong{color:var(--primary2);font-weight:800}
+.b .m strong{color:#ef4444;font-weight:800}
 .b .m ul,.b .m ol{margin:8px 0;padding-inline-start:1.5rem}
 .b .m li{margin:4px 0}
-.b .m blockquote{border-inline-start:3px solid var(--primary);padding:6px 12px;background:rgba(139,92,246,.08);border-radius:0 10px 10px 0;margin:8px 0;font-style:italic}
+.b .m blockquote{border-inline-start:3px solid var(--red);padding:6px 12px;background:rgba(220,38,38,.08);border-radius:0 10px 10px 0;margin:8px 0;font-style:italic}
 .b .m pre{background:#05050a;color:#eaeaf5;padding:14px;border-radius:14px;overflow-x:auto;direction:ltr;text-align:left;margin:10px 0;font-size:13px;font-family:'Courier New',monospace;border:1px solid var(--border2)}
-.b .m code{background:rgba(139,92,246,.2);padding:2px 7px;border-radius:6px;font-family:monospace;font-size:.9em;direction:ltr;display:inline-block}
+.b .m code{background:rgba(220,38,38,.2);padding:2px 7px;border-radius:6px;font-family:monospace;font-size:.9em;direction:ltr;display:inline-block}
 .b .m pre code{background:transparent;padding:0;color:inherit;display:block}
 .b .m hr{border:none;border-top:1px solid var(--border2);margin:14px 0}
 .b .m img{max-width:100%;border-radius:14px;margin-top:8px;display:block;box-shadow:0 10px 30px rgba(0,0,0,.4)}
-.b .m a{color:var(--accent);text-decoration:underline}
+.b .m a{color:#3b82f6;text-decoration:underline}
 .msg-actions{display:flex;gap:5px;opacity:0;transition:opacity .25s;margin-top:6px}
 .mw:hover .msg-actions,.mw:focus-within .msg-actions{opacity:1}
 .msg-actions button{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted);padding:5px 11px;border-radius:9px;font-size:11px;font-family:inherit;cursor:pointer;font-weight:600;transition:all .2s}
-.msg-actions button:hover{color:var(--primary2);border-color:var(--primary);background:rgba(139,92,246,.1)}
+.msg-actions button:hover{color:#ef4444;border-color:var(--red);background:rgba(220,38,38,.1)}
 
 .tp{display:flex;gap:5px;padding:14px 18px;align-items:center}
-.tp span{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:bnc 1.3s infinite}
-.tp span:nth-child(2){animation-delay:.15s}
-.tp span:nth-child(3){animation-delay:.3s}
+.tp span{width:8px;height:8px;border-radius:50%;background:var(--red);animation:bnc 1.3s infinite}
+.tp span:nth-child(2){animation-delay:.15s;background:#991b1b}
+.tp span:nth-child(3){animation-delay:.3s;background:#3b82f6}
 @keyframes bnc{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-7px);opacity:1}}
 
-/* Input area */
 .input-area{position:fixed;bottom:0;left:0;right:0;padding:12px 14px 18px;background:linear-gradient(to top,var(--bg) 55%,transparent);z-index:40}
 .modes{display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
 .modes::-webkit-scrollbar{display:none}
 .modes button{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:8px 14px;border-radius:12px;font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .2s}
 .modes button:hover{color:var(--text);background:var(--card2)}
-.modes button.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(139,92,246,.4)}
+.modes button.on{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(220,38,38,.4)}
 .input-box{display:flex;align-items:flex-end;gap:8px;background:var(--card2);border:1.5px solid var(--border2);border-radius:24px;padding:8px;backdrop-filter:blur(20px);transition:border-color .25s}
-.input-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 4px rgba(139,92,246,.12)}
+.input-box:focus-within{border-color:var(--red);box-shadow:0 0 0 4px rgba(220,38,38,.12)}
 #i{flex:1;resize:none;border:none;outline:none;background:transparent;color:var(--text);padding:11px 14px;font-family:inherit;font-size:15px;max-height:160px;line-height:1.6}
 #i::placeholder{color:var(--muted)}
 .btn-mic,#s{width:46px;height:46px;border-radius:15px;border:none;font-size:18px;cursor:pointer;display:grid;place-items:center;flex-shrink:0;transition:all .2s}
@@ -632,22 +721,26 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 .btn-mic:hover{background:rgba(255,255,255,.12)}
 .btn-mic.rec{background:#dc2626;color:#fff;animation:pr 1s infinite}
 @keyframes pr{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
-#s{background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(139,92,246,.45)}
+#s{background:var(--grad);color:#fff;box-shadow:0 8px 22px rgba(220,38,38,.45)}
 #s:hover:not(:disabled){transform:scale(1.06)}
 #s:active:not(:disabled){transform:scale(.94)}
 #s:disabled{opacity:.4}
 
-/* Modal */
-.modal{position:fixed;inset:0;background:rgba(8,8,15,.94);backdrop-filter:blur(24px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
+.modal{position:fixed;inset:0;background:rgba(10,10,20,.94);backdrop-filter:blur(24px);z-index:999;display:none;flex-direction:column;padding:24px;overflow-y:auto}
 .modal.on{display:flex}
 .modal-inner{max-width:500px;margin:0 auto;width:100%}
 .modal h2{font-size:22px;font-weight:900;margin-bottom:20px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .setting{margin-bottom:18px}
 .setting label{font-size:13px;color:var(--muted);display:block;margin-bottom:8px;font-weight:600}
-.setting select,.setting input[type=range]{width:100%;padding:13px;border-radius:13px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
-.setting select:focus{border-color:var(--primary)}
-.voice-test{padding:14px;border-radius:13px;border:none;background:var(--grad);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:8px;box-shadow:0 10px 26px rgba(139,92,246,.4)}
+.setting select{width:100%;padding:13px;border-radius:13px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-family:inherit;font-size:14px;outline:none}
+.setting select:focus{border-color:var(--red)}
+.voice-test{padding:14px;border-radius:13px;border:none;background:var(--grad);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:8px;box-shadow:0 10px 26px rgba(220,38,38,.4)}
 .modal-close{position:absolute;top:18px;left:18px;width:42px;height:42px;border-radius:13px;border:none;background:var(--card);color:var(--text);font-size:20px;cursor:pointer}
+
+#installBanner{position:fixed;bottom:100px;right:14px;left:14px;max-width:420px;margin:auto;padding:14px;background:var(--grad);color:#fff;border-radius:18px;box-shadow:0 16px 44px rgba(220,38,38,.5);z-index:100;display:flex;align-items:center;gap:10px;font-family:Cairo,sans-serif;font-weight:700;font-size:13px;animation:sl .5s}
+@keyframes sl{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+#installBanner button{padding:8px 14px;border:none;border-radius:10px;background:#fff;color:#dc2626;font-weight:800;font-family:inherit;font-size:13px;cursor:pointer}
+#installBanner .close{background:transparent;color:#fff;font-size:18px;padding:4px 8px;border:none;cursor:pointer}
 
 @media(max-width:600px){
   .suggest-grid{grid-template-columns:1fr}
@@ -743,8 +836,6 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
         <option value="ar-DZ">🇩🇿 جزائرية</option>
         <option value="ar-MA">🇲🇦 مغربية</option>
         <option value="ar-AE">🇦🇪 إماراتية</option>
-        <option value="ar-IQ">🇮🇶 عراقية</option>
-        <option value="ar-SY">🇸🇾 سورية</option>
       </select>
     </div>
     <button class="voice-test" onclick="testVoice()">🎧 تجربة الصوت</button>
@@ -753,7 +844,7 @@ body{font-family:Cairo,system-ui,sans-serif;background:var(--bg);color:var(--tex
 
 <script>
 let mode="general",history=[],isAdmin=false,isSending=false,userName="";
-let voiceEnabled=false,currentAudio=null;
+let voiceEnabled=false,currentAudio=null,deferredPrompt=null;
 
 const ch=document.getElementById("ch"),i=document.getElementById("i"),
       s=document.getElementById("s"),errEl=document.getElementById("err"),
@@ -804,11 +895,11 @@ function addMsg(text,who,imageUrl,time){
     img.src=imageUrl;img.alt="صورة";
     m.appendChild(img);
   }
-  body.appendChild(meta);body.appendChild(m);
+  body.appendChild(m);
   if(who==="b"){
     const actions=document.createElement("div");actions.className="msg-actions";
     const b1=document.createElement("button");b1.textContent="📋 نسخ";
-    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="✅ تم";setTimeout(function(){b1.textContent="📋 نسخ"},1500)};
+    b1.onclick=function(){navigator.clipboard.writeText(text);b1.textContent="✅";setTimeout(function(){b1.textContent="📋 نسخ"},1500)};
     const b2=document.createElement("button");b2.textContent="🔊 سماع";
     b2.onclick=function(){speak(text,true)};
     const b3=document.createElement("button");b3.textContent="💾 تحميل";
@@ -820,8 +911,7 @@ function addMsg(text,who,imageUrl,time){
     actions.appendChild(b1);actions.appendChild(b2);actions.appendChild(b3);
     body.appendChild(actions);
   }
-  w.appendChild(avt);
-  w.appendChild(body);
+  w.appendChild(avt);w.appendChild(body);
   ch.appendChild(w);ch.scrollTop=ch.scrollHeight;
 }
 function typ(){
@@ -857,7 +947,6 @@ function toggleVoice(){
     if(window.speechSynthesis)speechSynthesis.cancel();
   }
 }
-
 function cleanForSpeech(t){
   return t.replace(/```[\s\S]*?```/g,"").replace(/`([^`]+)`/g,"$1")
           .replace(/[#*_]/g,"").replace(/\n+/g," ").slice(0,190);
@@ -879,8 +968,7 @@ function speakBrowser(text){
   const u=new SpeechSynthesisUtterance(clean);
   const lang=document.getElementById("langSelect").value;
   u.lang=lang;
-  const voices=speechSynthesis.getVoices();
-  const v=voices.find(function(vv){return vv.lang.startsWith(lang.slice(0,2))});
+  const v=speechSynthesis.getVoices().find(function(vv){return vv.lang.startsWith(lang.slice(0,2))});
   if(v)u.voice=v;
   speechSynthesis.speak(u);
 }
@@ -964,7 +1052,7 @@ async function send(){
   const isBook=t.startsWith("/كتاب ")||t.startsWith("/book ");
   if(isBook){
     const tt=tp.querySelector(".m");
-    if(tt)tt.innerHTML='<div style="padding:4px 0">📚 <b>جاري تأليف الكتاب...</b><br><small style="opacity:.7">قد يستغرق دقيقة (فهرس + مقدمة + 3 فصول)</small></div>';
+    if(tt)tt.innerHTML='<div style="padding:4px 0">📚 <b>جاري تأليف الكتاب...</b><br><small style="opacity:.7">قد يستغرق دقيقة</small></div>';
   }
   try{
     const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},
@@ -999,6 +1087,29 @@ i.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.prev
 i.addEventListener("input",function(){i.style.height="auto";i.style.height=Math.min(i.scrollHeight,160)+"px"});
 document.getElementById("lp").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
 document.getElementById("rp2").addEventListener("keydown",function(e){if(e.key==="Enter")doRegister()});
+
+// تسجيل SW
+if("serviceWorker" in navigator){
+  window.addEventListener("load",function(){
+    navigator.serviceWorker.register("/sw.js").then(function(){console.log("SW ok")}).catch(function(){});
+  });
+}
+window.addEventListener("beforeinstallprompt",function(e){
+  e.preventDefault();deferredPrompt=e;
+  if(document.getElementById("installBanner"))return;
+  const b=document.createElement("div");b.id="installBanner";
+  b.innerHTML='<span style="font-size:24px">📱</span><div style="flex:1">ثبّت Moka AI كتطبيق<div style="font-size:11px;font-weight:500;opacity:.85">يعمل بدون متصفح، أسرع وأجمل</div></div><button onclick="installApp()">تثبيت</button><button class="close" onclick="this.parentElement.remove()">✕</button>';
+  document.body.appendChild(b);
+});
+function installApp(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(function(c){
+    deferredPrompt=null;
+    const b=document.getElementById("installBanner");
+    if(b)b.remove();
+  });
+}
 </script>
 </body>
 </html>'''
@@ -1014,23 +1125,23 @@ HTML_ADMIN = r'''<!DOCTYPE html>
 <title>لوحة الإدارة — Moka AI</title>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
 <style>
-body{font-family:Cairo;background:#08080f;color:#eaeaf5;padding:22px;min-height:100vh}
-h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#c084fc,#06b6d4);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+body{font-family:Cairo;background:#0a0a14;color:#eaeaf5;padding:22px;min-height:100vh}
+h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#dc2626,#1e3a8a);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
 .sub{color:#8a8aa8;font-size:13px;margin-bottom:20px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
 .card{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
-.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#8b5cf6,#c084fc);-webkit-background-clip:text;background-clip:text;color:transparent}
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#ef4444,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent}
 .lbl{font-size:12px;color:#8a8aa8;margin-top:6px}
 .box{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
 .box h2{font-size:16px;font-weight:800;margin-bottom:12px}
 .row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
 .row:last-child{border-bottom:none}
 .row .meta{color:#8a8aa8;font-size:12px}
-.badge{background:linear-gradient(135deg,#8b5cf6,#c084fc);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.badge{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
 .badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
 .msg-item{padding:10px;background:rgba(0,0,0,.25);border-radius:12px;margin-bottom:6px;font-size:13px}
 .msg-item .meta{display:flex;justify-content:space-between;color:#8a8aa8;font-size:11px;margin-bottom:4px}
-a.back{display:inline-block;color:#8b5cf6;text-decoration:none;font-weight:800;margin-bottom:16px}
+a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;margin-bottom:16px}
 a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
 </style>
 </head>
@@ -1105,10 +1216,117 @@ a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     print("=" * 55)
-    print("Moka AI v28.0 — Professional Edition")
+    print("Moka AI v29.0 - Red & Navy")
     print("المطور: محمد كامل")
     print("المدير: " + ADMIN_USERNAME)
     print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
     print("=" * 55)
     app.run(host="0.0.0.0", port=port, debug=False)
 
+# ============ HTML لوحة الإدارة ============
+
+HTML_ADMIN = r'''<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>لوحة الإدارة — Moka AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+body{font-family:Cairo;background:#0a0a14;color:#eaeaf5;padding:22px;min-height:100vh}
+h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,#dc2626,#1e3a8a);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:6px}
+.sub{color:#8a8aa8;font-size:13px;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:22px}
+.card{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px;text-align:center}
+.num{font-size:30px;font-weight:900;background:linear-gradient(135deg,#ef4444,#3b82f6);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lbl{font-size:12px;color:#8a8aa8;margin-top:6px}
+.box{background:rgba(20,20,35,.8);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px;margin-bottom:16px}
+.box h2{font-size:16px;font-weight:800;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px;gap:10px;flex-wrap:wrap}
+.row:last-child{border-bottom:none}
+.row .meta{color:#8a8aa8;font-size:12px}
+.badge{background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:800}
+.badge.user{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.msg-item{padding:10px;background:rgba(0,0,0,.25);border-radius:12px;margin-bottom:6px;font-size:13px}
+.msg-item .meta{display:flex;justify-content:space-between;color:#8a8aa8;font-size:11px;margin-bottom:4px}
+a.back{display:inline-block;color:#ef4444;text-decoration:none;font-weight:800;margin-bottom:16px}
+a.unblock{background:#22c55e;color:#fff;padding:4px 10px;border-radius:8px;font-size:11px;text-decoration:none;font-weight:800}
+</style>
+</head>
+<body>
+<a href="/" class="back">← رجوع</a>
+<h1>لوحة الإدارة</h1>
+<div class="sub">من تطوير محمد كامل</div>
+
+<div class="grid">
+  <div class="card"><div class="num">{{ stats.visitors }}</div><div class="lbl">زيارات</div></div>
+  <div class="card"><div class="num">{{ stats.logins }}</div><div class="lbl">تسجيلات</div></div>
+  <div class="card"><div class="num">{{ stats.registrations }}</div><div class="lbl">حسابات</div></div>
+  <div class="card"><div class="num">{{ stats.messages }}</div><div class="lbl">رسائل</div></div>
+  <div class="card"><div class="num">{{ stats.books_generated }}</div><div class="lbl">كتب</div></div>
+  <div class="card"><div class="num">{{ stats.images_generated }}</div><div class="lbl">صور</div></div>
+  <div class="card"><div class="num">{{ stats.voice_used }}</div><div class="lbl">صوت</div></div>
+  <div class="card"><div class="num">{{ users|length }}</div><div class="lbl">مستخدمين</div></div>
+</div>
+
+<div class="box">
+  <h2>الأنماط</h2>
+  {% for k, v in stats.modes.items() %}
+  <div class="row"><span>{{ k }}</span><b>{{ v }}</b></div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>المستخدمون</h2>
+  {% for u, info in users.items() %}
+  <div class="row">
+    <span>{{ info.name }} <span class="meta">({{ u }})</span></span>
+    <span class="badge {{ 'user' if info.role != 'admin' else '' }}">{{ info.role }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>تسجيلات حديثة</h2>
+  {% for r in stats.recent[-15:]|reverse %}
+  <div class="row"><span>{{ r.name }}</span>
+    <span class="meta">{{ r.ip }} — {{ r.time }}</span></div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>آخر 20 رسالة</h2>
+  {% for m in stats.messages_log[-20:]|reverse %}
+  <div class="msg-item">
+    <div class="meta"><span>{{ m.user }} — {{ m.mode }}</span><span>{{ m.time }}</span></div>
+    <div>{{ m.text }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="box">
+  <h2>IP محظورة</h2>
+  {% if blocked %}
+    {% for ip in blocked %}
+    <div class="row"><span>{{ ip }}</span>
+      <a class="unblock" href="/admin/unblock/{{ ip }}?key={{ key }}">الغاء</a></div>
+    {% endfor %}
+  {% else %}
+    <div class="row"><span class="meta">لا يوجد</span></div>
+  {% endif %}
+</div>
+</body>
+</html>'''
+
+
+# ============ التشغيل ============
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print("=" * 55)
+    print("Moka AI v29.0 — Red & Navy")
+    print("المطور: محمد كامل")
+    print("المدير: " + ADMIN_USERNAME)
+    print("Groq Key: " + ("موجود" if GROQ_API_KEY else "مفقود!"))
+    print("=" * 55)
+    app.run(host="0.0.0.0", port=port, debug=False)
