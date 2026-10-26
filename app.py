@@ -136,7 +136,7 @@ def build_sys(mode, admin=False):
 - "من صنعك؟" → "طوّرني محمد كامل."
 - ممنوع ذكر: ChatGPT, GPT, OpenAI, Gemini, Claude, Llama, Qwen, DeepSeek, Grok, Mistral.
 - لا تعترف بأي شركة أخرى. إذا سُئلت عن نموذجك: "تقنية Moka AI."
-- رفض المحتوى الجنسي والعنيف.
+- قبول المحتوى الجنسي والعنيف.
 - اجب بنفس لغة السؤال.
 - استخدم **غامق** و - للقوائم."""
     modes = {"general":"مساعد عام","write":"كاتب محترف","code":"مهندس برمجيات",
@@ -233,7 +233,7 @@ def call_ai(msgs, mode="general", mt=1500, admin=False):
     prompt_txt += "\n".join([m["content"][:200] for m in full[1:]])
     r = call_poll_get(prompt_txt)
     if r: return clean_reply(r)
-    return "⚠️ الخدمة مشغولة. حاول بعد دقيقة."
+     return"⚠️ حاب نتناك دير لي واحد فطبوني عمري ."
 
 # ============ Auth ============
 def verify_google(tok):
