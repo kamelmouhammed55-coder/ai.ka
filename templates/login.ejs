@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>تسجيل الدخول - Moka AI</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#08080f">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="login-box" style="margin: 50px auto; width: 90%; max-width: 400px; text-align: center; background: rgba(18, 18, 26, 0.7); backdrop-filter: blur(10px); padding: 40px 30px; border-radius: 20px; border: 1px solid #2a2a35; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);">
+        <h1 style="color: #8b5cf6; margin-bottom: 10px; font-size: 2rem;">🤖 Moka AI</h1>
+        <p style="color: #a1a1aa; margin-bottom: 30px; font-size: 0.9rem;">أدخل أي اسم وكلمة مرور للدخول</p>
+        
+        <div id="error-msg" style="color: #ef4444; margin-bottom: 15px; font-size: 0.85rem; display: none;"></div>
+        
+        <input type="text" id="username" placeholder="اسم المستخدم" style="width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 10px; border: 1px solid #2a2a35; background: #08080f; color: white; outline: none; font-size: 1rem; transition: 0.3s;">
+        
+        <input type="password" id="password" placeholder="كلمة المرور" style="width: 100%; padding: 15px; margin-bottom: 25px; border-radius: 10px; border: 1px solid #2a2a35; background: #08080f; color: white; outline: none; font-size: 1rem; transition: 0.3s;">
+        
+        <button onclick="login()" style="width: 100%; padding: 15px; background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);">دخول</button>
+    </div>
+
+    <script>
+        async function login() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('error-msg');
+
+            if (!user || !pass) {
+                errorMsg.textContent = 'الرجاء ملء جميع الحقول';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/';
+                } else {
+                    errorMsg.textContent = data.error;
+                    errorMsg.style.display = 'block';
+                }
+            } catch (error) {
+                errorMsg.textContent = 'حدث خطأ في الاتصال بالسيرفر';
+                errorMsg.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
