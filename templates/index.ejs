@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Moka AI</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#08080f">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <h1>🤖 Moka AI</h1>
+            <span class="user-badge"><%= username %></span>
+        </div>
+        <a href="/logout" class="logout-btn">خروج</a>
+    </header>
+
+    <main id="chat-container">
+        <div class="message ai-message">
+            مرحباً <b><%= username %></b> 👋<br>
+            أنا <b>Moka AI</b>، طورني <b>محمد كامل</b>.<br>
+            أعرف الوقت والتاريخ، ويمكنني البحث في ويكيبيديا. كيف أساعدك؟
+        </div>
+    </main>
+
+    <footer>
+        <input type="text" id="user-input" placeholder="اسأل عن أي شيء..." autocomplete="off">
+        <button id="send-btn">إرسال</button>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>
